@@ -1,0 +1,18 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <!-- mug body -->
+  <path d="M30 44 h52 v20 a26 26 0 0 1 -26 26 h0 a26 26 0 0 1 -26 -26 z"
+        stroke="#F3E9DC" stroke-width="5" stroke-linejoin="round"/>
+  <!-- handle -->
+  <path d="M82 51 h7 a12 12 0 0 1 0 24 h-7"
+        stroke="#F3E9DC" stroke-width="5" stroke-linecap="round"/>
+  <!-- brows (cranky slant) -->
+  <path d="M41 54 L52 59" stroke="#F3E9DC" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M71 54 L60 59" stroke="#F3E9DC" stroke-width="4.5" stroke-linecap="round"/>
+  <!-- eyes -->
+  <circle cx="47" cy="64" r="2.8" fill="#F3E9DC"/>
+  <circle cx="65" cy="64" r="2.8" fill="#F3E9DC"/>
+  <!-- frown -->
+  <path d="M47 79 Q56 71 65 79" stroke="#F3E9DC" stroke-width="4.5" stroke-linecap="round"/>
+  <!-- tear falling from left eye -->
+  <path d="M47 69 c -4.5 7 -4.5 10.5 0 10.5 c 4.5 0 4.5 -3.5 0 -10.5 z" fill="#FF7A3D"/>
+</svg>
