@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{
   --bg:#211613; --surface:#2E211C; --surface2:#3A2A23; --line:#4A3730;
@@ -207,20 +207,64 @@ document.querySelector('#topbar').insertAdjacentHTML('afterbegin', `<span style=
 document.querySelector('#topbar').insertAdjacentHTML('beforeend', `<span style="color:var(--cream)">${LOGO}</span>`);
 document.querySelector('#splash span').innerHTML = LOGO;
 
-/* ---- JSONP data layer (sidesteps Apps Script CORS) ---- */
-let _cb = 0;
-function api(params){
-  return new Promise((resolve,reject)=>{
-    const name = '_ck'+(_cb++);
-    const s = document.createElement('script');
-    const t = setTimeout(()=>{done(); reject(new Error('timeout'));}, 20000);
-    function done(){ delete window[name]; s.remove(); clearTimeout(t); }
-    window[name] = d=>{ done(); resolve(d); };
-    s.onerror = ()=>{ done(); reject(new Error('network')); };
-    const q = new URLSearchParams(Object.assign({}, params, {callback:name})).toString();
-    s.src = API_URL + '?' + q;
-    document.body.appendChild(s);
-  });
+/* ---- MOCK data layer (PREVIEW ONLY — no backend, in-memory sample data) ---- */
+const _today = new Date();
+const _iso = d => d.toISOString().slice(0,10);
+const _ago = n => { const d=new Date(_today); d.setDate(_today.getDate()-n); return _iso(d); };
+const DB = {
+  nextId: 6,
+  beans: [
+    {id:2,name:'Daydreamer',roaster:'Elsewhere',notes:'Brazil · choc & nut',grind:4,grams:210,opened:_ago(6),status:'active'},
+    {id:3,name:'Juicebox',roaster:'Elsewhere',notes:'Colombia · fruity',grind:5,grams:35,opened:_ago(18),status:'active'},
+    {id:4,name:'Night Rider',roaster:'Elsewhere',notes:'House decaf',grind:'',grams:0,opened:_ago(40),status:'archived'},
+    {id:5,name:'Mango Tango',roaster:'Assembly',notes:'Limited',grind:6,grams:0,opened:_ago(52),status:'archived'}
+  ],
+  options:{
+    drink:['Espresso','Americano','Flat White','Cappuccino','Cortado','Iced Americano','Iced Latte','Iced Flat White','Vanilla Maple Frappe','Iced Cold Foam Americano'],
+    barista:['Payal','Sameer'], person:['Payal','Sameer']
+  },
+  log: (function(){
+    const drinks=['Espresso','Americano','Flat White','Cappuccino','Cortado','Iced Latte','Iced Americano','Vanilla Maple Frappe','Iced Cold Foam Americano'];
+    const who=['Payal','Sameer','Sameer','Payal','Guest'];
+    const beans=['Daydreamer','Juicebox'];
+    const out=[]; const today=new Date();
+    for(let d=27; d>=0; d--){
+      const day=new Date(today); day.setDate(today.getDate()-d);
+      const n=Math.floor(Math.random()*3);
+      for(let i=0;i<n;i++){
+        const t=new Date(day); t.setHours(7+Math.floor(Math.random()*10), Math.floor(Math.random()*60));
+        out.push({ts:t.toISOString(), barista:who[Math.floor(Math.random()*who.length)],
+          for:who[Math.floor(Math.random()*who.length)], drink:drinks[Math.floor(Math.random()*drinks.length)],
+          bean:beans[Math.floor(Math.random()*beans.length)], grams:17.5});
+      }
+    }
+    return out;
+  })()
+};
+function api(params){ return new Promise(res=>setTimeout(()=>res(handle(params)),120)); }
+function handle(p){
+  switch(p.action){
+    case 'getData': return {ok:true, beans:DB.beans.map(b=>({...b})),
+      options:{drink:[...DB.options.drink],barista:[...DB.options.barista],person:[...DB.options.person]},
+      log:DB.log.map(l=>({...l}))};
+    case 'log': { const b=DB.beans.find(x=>x.id===+p.beanId); const g=Math.round((b.grams-17.5)*10)/10; b.grams=g;
+      DB.log.push({ts:new Date().toISOString(),barista:p.barista,for:p.for,drink:p.drink,bean:b.name,grams:17.5});
+      return {ok:true,beanId:b.id,grams:g}; }
+    case 'addBean': DB.beans.push({id:DB.nextId++,name:p.name,roaster:p.roaster||'',notes:p.notes||'',grind:'',grams:+(p.grams||0),opened:p.opened||'',status:'active'}); return {ok:true};
+    case 'updateBean': { const b=DB.beans.find(x=>x.id===+p.id);
+      if(p.name!==undefined)b.name=p.name;
+      if(p.roaster!==undefined)b.roaster=p.roaster;
+      if(p.notes!==undefined)b.notes=p.notes;
+      if(p.grind!==undefined)b.grind=p.grind===''?'':+p.grind;
+      if(p.grams!==undefined)b.grams=+p.grams;
+      if(p.opened!==undefined)b.opened=p.opened;
+      if(p.status!==undefined)b.status=p.status;
+      if(p.delta!==undefined)b.grams=Math.round((b.grams+(+p.delta))*10)/10;
+      return {ok:true}; }
+    case 'addOption': DB.options[p.category].push(p.value); return {ok:true};
+    case 'removeOption': { const a=DB.options[p.category]; const k=a.indexOf(p.value); if(k>=0)a.splice(k,1); return {ok:true}; }
+    default: return {ok:false,error:'unknown'};
+  }
 }
 
 /* ---- state ---- */

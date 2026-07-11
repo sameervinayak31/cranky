@@ -2,14 +2,15 @@
  * Cranky — Google Apps Script backend
  * Bound to your Google Sheet. Deploy as a Web App (see SETUP.md).
  * Responds as JSONP so the GitHub Pages site can call it with no CORS setup.
+ *
+ * Beans columns: A name | B roaster | C notes | D grind | E grams | F opened | G status
  */
 
 var GRAMS_PER = 17.5;
 
 var SEED = {
-  drink: ['Americano','Flat white','Cappuccino','Cortado','Iced americano',
-          'Iced latte','Iced flat white','Vanilla maple frappe',
-          'Iced americano with maple cold foam'],
+  drink: ['Espresso','Americano','Flat White','Cappuccino','Cortado','Iced Americano',
+          'Iced Latte','Iced Flat White','Vanilla Maple Frappe','Iced Cold Foam Americano'],
   barista: ['Payal','Sameer'],
   person: ['Payal','Sameer']
 };
@@ -40,16 +41,20 @@ function doGet(e){
 
 function ss(){ return SpreadsheetApp.getActiveSpreadsheet(); }
 
+function ymd(v){
+  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  return v ? String(v) : '';
+}
+
 function ensureSetup(){
   var s = ss();
-  var log = s.getSheetByName('Log');
-  if (!log){ log = s.insertSheet('Log');
-    log.appendRow(['timestamp','barista','for','drink','bean','grams']); }
-  var beans = s.getSheetByName('Beans');
-  if (!beans){ beans = s.insertSheet('Beans');
-    beans.appendRow(['name','notes','grind','grams','status']); }
+  if (!s.getSheetByName('Log'))
+    s.insertSheet('Log').appendRow(['timestamp','barista','for','drink','bean','grams']);
+  if (!s.getSheetByName('Beans'))
+    s.insertSheet('Beans').appendRow(['name','roaster','notes','grind','grams','opened','status']);
   var opt = s.getSheetByName('Options');
-  if (!opt){ opt = s.insertSheet('Options');
+  if (!opt){
+    opt = s.insertSheet('Options');
     opt.appendRow(['category','value']);
     ['drink','barista','person'].forEach(function(cat){
       SEED[cat].forEach(function(v){ opt.appendRow([cat, v]); });
@@ -61,28 +66,21 @@ function ensureSetup(){
 
 function getData(){
   var s = ss();
-  // beans (id = sheet row, so archiving keeps ids stable)
-  var bsheet = s.getSheetByName('Beans');
-  var beans = [];
+  var bsheet = s.getSheetByName('Beans'), beans = [];
   if (bsheet.getLastRow() > 1){
-    var bv = bsheet.getRange(2,1,bsheet.getLastRow()-1,5).getValues();
-    bv.forEach(function(r,i){
-      if (r[0]==='' && r[3]==='') return;
-      beans.push({ id:i+2, name:r[0], notes:r[1], grind:r[2], grams:Number(r[3])||0,
-                   status:r[4]||'active' });
+    bsheet.getRange(2,1,bsheet.getLastRow()-1,7).getValues().forEach(function(r,i){
+      if (r[0]==='' && r[4]==='') return;
+      beans.push({ id:i+2, name:r[0], roaster:r[1], notes:r[2], grind:r[3],
+                   grams:Number(r[4])||0, opened:ymd(r[5]), status:r[6]||'active' });
     });
   }
-  // options grouped by category
-  var osheet = s.getSheetByName('Options');
-  var options = { drink:[], barista:[], person:[] };
+  var osheet = s.getSheetByName('Options'), options = { drink:[], barista:[], person:[] };
   if (osheet.getLastRow() > 1){
     osheet.getRange(2,1,osheet.getLastRow()-1,2).getValues().forEach(function(r){
       if (options[r[0]] !== undefined && r[1]!=='') options[r[0]].push(r[1]);
     });
   }
-  // log
-  var lsheet = s.getSheetByName('Log');
-  var log = [];
+  var lsheet = s.getSheetByName('Log'), log = [];
   if (lsheet.getLastRow() > 1){
     lsheet.getRange(2,1,lsheet.getLastRow()-1,6).getValues().forEach(function(r){
       if (!r[0]) return;
@@ -96,21 +94,20 @@ function getData(){
 function logDrink(p){
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
-    var s = ss();
-    var beans = s.getSheetByName('Beans');
+    var beans = ss().getSheetByName('Beans');
     var row = Number(p.beanId);
     var name = beans.getRange(row,1).getValue();
-    var grams = Number(beans.getRange(row,4).getValue()) || 0;
+    var grams = Number(beans.getRange(row,5).getValue()) || 0;   // grams = col E
     var next = Math.round((grams - GRAMS_PER)*10)/10;
-    beans.getRange(row,4).setValue(next);
-    s.getSheetByName('Log').appendRow([new Date(), p.barista||'', p.for||'', p.drink||'', name, GRAMS_PER]);
+    beans.getRange(row,5).setValue(next);
+    ss().getSheetByName('Log').appendRow([new Date(), p.barista||'', p.for||'', p.drink||'', name, GRAMS_PER]);
     return { ok:true, beanId:row, grams:next };
   } finally { lock.releaseLock(); }
 }
 
 function addBean(p){
   var grams = (p.grams===''||p.grams==null) ? 0 : Number(p.grams);
-  ss().getSheetByName('Beans').appendRow([p.name||'', p.notes||'', '', grams, 'active']);
+  ss().getSheetByName('Beans').appendRow([p.name||'', p.roaster||'', p.notes||'', '', grams, p.opened||'', 'active']);
   return { ok:true };
 }
 
@@ -119,13 +116,16 @@ function updateBean(p){
   try {
     var beans = ss().getSheetByName('Beans');
     var row = Number(p.id);
-    if (p.grams   !== undefined) beans.getRange(row,4).setValue(Number(p.grams));
-    if (p.grind   !== undefined) beans.getRange(row,3).setValue(p.grind===''?'':Number(p.grind));
-    if (p.notes   !== undefined) beans.getRange(row,2).setValue(p.notes);
-    if (p.status  !== undefined) beans.getRange(row,5).setValue(p.status);
+    if (p.name    !== undefined) beans.getRange(row,1).setValue(p.name);
+    if (p.roaster !== undefined) beans.getRange(row,2).setValue(p.roaster);
+    if (p.notes   !== undefined) beans.getRange(row,3).setValue(p.notes);
+    if (p.grind   !== undefined) beans.getRange(row,4).setValue(p.grind===''?'':Number(p.grind));
+    if (p.grams   !== undefined) beans.getRange(row,5).setValue(Number(p.grams));
+    if (p.opened  !== undefined) beans.getRange(row,6).setValue(p.opened);
+    if (p.status  !== undefined) beans.getRange(row,7).setValue(p.status);
     if (p.delta   !== undefined){
-      var cur = Number(beans.getRange(row,4).getValue())||0;
-      beans.getRange(row,4).setValue(Math.round((cur+Number(p.delta))*10)/10);
+      var cur = Number(beans.getRange(row,5).getValue())||0;
+      beans.getRange(row,5).setValue(Math.round((cur+Number(p.delta))*10)/10);
     }
     return { ok:true };
   } finally { lock.releaseLock(); }
@@ -140,9 +140,7 @@ function removeOption(p){
   var opt = ss().getSheetByName('Options');
   var vals = opt.getRange(2,1,Math.max(0,opt.getLastRow()-1),2).getValues();
   for (var i=0;i<vals.length;i++){
-    if (vals[i][0]===p.category && String(vals[i][1])===String(p.value)){
-      opt.deleteRow(i+2); break;
-    }
+    if (vals[i][0]===p.category && String(vals[i][1])===String(p.value)){ opt.deleteRow(i+2); break; }
   }
   return { ok:true };
 }
