@@ -27,6 +27,7 @@ function doGet(e){
       case 'updateBean':   out = updateBean(p); break;
       case 'addOption':    out = addOption(p); break;
       case 'removeOption': out = removeOption(p); break;
+      case 'setDrinkIcon': out = setDrinkIcon(p); break;
       default:             out = { ok:false, error:'unknown action' };
     }
   } catch (err) {
@@ -64,6 +65,8 @@ function ensureSetup(){
       SEED[cat].forEach(function(v){ opt.appendRow([cat, v]); });
     });
   }
+  if (!s.getSheetByName('DrinkIcons'))
+    s.insertSheet('DrinkIcons').appendRow(['drink','icon']);
   var def = s.getSheetByName('Sheet1');
   if (def && def.getLastRow()===0) s.deleteSheet(def);
 }
@@ -93,7 +96,13 @@ function getData(){
       log.push({ ts:ts, barista:r[1], for:r[2], drink:r[3], bean:r[4], grams:Number(r[5])||0 });
     });
   }
-  return { ok:true, beans:beans, options:options, log:log };
+  var disheet = s.getSheetByName('DrinkIcons'), drinkIcons = {};
+  if (disheet.getLastRow() > 1){
+    disheet.getRange(2,1,disheet.getLastRow()-1,2).getValues().forEach(function(r){
+      if (r[0]!=='' && r[1]!=='') drinkIcons[r[0]] = r[1];
+    });
+  }
+  return { ok:true, beans:beans, options:options, log:log, drinkIcons:drinkIcons };
 }
 
 function logDrink(p){
@@ -149,6 +158,24 @@ function removeOption(p){
   var vals = opt.getRange(2,1,Math.max(0,opt.getLastRow()-1),2).getValues();
   for (var i=0;i<vals.length;i++){
     if (vals[i][0]===p.category && String(vals[i][1])===String(p.value)){ opt.deleteRow(i+2); break; }
+  }
+  if (p.category==='drink') setDrinkIcon({ drink:p.value, icon:'' });
+  return { ok:true };
+}
+
+function setDrinkIcon(p){
+  var sheet = ss().getSheetByName('DrinkIcons');
+  var vals = sheet.getRange(2,1,Math.max(0,sheet.getLastRow()-1),2).getValues();
+  var rowIdx = -1;
+  for (var i=0;i<vals.length;i++){
+    if (String(vals[i][0])===String(p.drink)){ rowIdx = i+2; break; }
+  }
+  if (p.icon===''||p.icon==null){
+    if (rowIdx>0) sheet.deleteRow(rowIdx);
+  } else if (rowIdx>0){
+    sheet.getRange(rowIdx,2).setValue(p.icon);
+  } else {
+    sheet.appendRow([p.drink, p.icon]);
   }
   return { ok:true };
 }

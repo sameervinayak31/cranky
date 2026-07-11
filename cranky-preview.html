@@ -56,11 +56,12 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .tile:active{transform:scale(.97)}
 .tile.sel{border-color:var(--accent);background:rgba(255,122,61,.14)}
 .tile.tc{align-items:center;text-align:center}
-.tile.drink{min-height:64px}
+.tile.drink{min-height:78px}
+.dicon{width:24px;height:24px}
 .tile.short{min-height:50px}
 .tile.bean{min-height:62px;position:relative;z-index:0;overflow:hidden}
 .tile.bean .flagwm{position:absolute;z-index:-1;right:-10px;bottom:-12px;width:76px;height:76px;opacity:.15;pointer-events:none}
-.tile.bean .flagwm path{fill:none;stroke:var(--cream);stroke-width:3;stroke-linejoin:round}
+.tile.bean .flagwm path{fill:none;stroke:var(--cream);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
 .tile .sub{font-weight:500;font-size:12px;color:var(--muted)}
 .tile.sel .sub{color:var(--accent)}
 .tile .sub.low{color:var(--low)}
@@ -130,6 +131,8 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   padding:11px 13px;color:var(--cream);font-size:15px}
 .addrow input:focus{outline:none;border-color:var(--accent)}
 .addrow button{background:var(--accent);border:none;border-radius:12px;color:#241009;font-weight:700;padding:0 18px;font-size:15px}
+.row select{background:var(--surface2);border:1px solid var(--line);border-radius:8px;color:var(--cream);font-size:12px;padding:5px 6px;font-family:inherit}
+.row select:focus{outline:none}
 .beancard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
 .beancard.arch{opacity:.6}
 .beancard .bhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px}
@@ -251,10 +254,38 @@ function countryOptions(selected){
   return `<option value="">—</option>` + COUNTRIES.map(c=>
     `<option value="${esc(c)}" ${c===selected?'selected':''}>${esc(c)}</option>`).join('');
 }
+const GLOBE_PATH = "M12.5,50.0 a37.5,37.5 0 1 0 75.0,0.0 a37.5,37.5 0 0 0 -75.0,0.0 M15.0,37.5 h70.0 M15.0,62.5 h70.0 M47.9,12.5 a70.8,70.8 0 0 0 0.0,75.0 M52.1,12.5 a70.8,70.8 0 0 1 0.0,75.0";
 function countryWatermark(country){
-  const d = COUNTRY_PATHS[country];
-  if (!d) return '';
+  const d = COUNTRY_PATHS[country] || GLOBE_PATH;
   return `<svg class="flagwm" viewBox="0 0 100 100" aria-hidden="true"><path d="${d}"/></svg>`;
+}
+
+/* ---- minimalist drink cup icons ---- */
+const DRINK_ICONS = {
+  demitasse: '<path d="M7 10 L17 10 L15 18 L9 18 Z"/><path d="M17 12 A2.5 2.5 0 1 1 17 17"/><line x1="5" y1="20" x2="19" y2="20"/>',
+  mug: '<path d="M6 7 L16 7 L16 20 L6 20 Z"/><path d="M16 10 A3 3 0 1 1 16 17"/>',
+  wide: '<path d="M5 10 L18 10 L15 18 L8 18 Z"/><path d="M18 12 A2.5 2.5 0 1 1 18 17"/><path d="M9.5 9.5 q2 -3 4 0"/><line x1="3" y1="20" x2="20" y2="20"/>',
+  iced: '<path d="M7 8 L17 8 L15 20 L9 20 Z"/><line x1="6.5" y1="8" x2="17.5" y2="8"/><line x1="13" y1="9" x2="16" y2="3"/><line x1="9.5" y1="12" x2="13.5" y2="12"/><line x1="10" y1="15.5" x2="14" y2="15.5"/>',
+  blended: '<path d="M7 10 L17 10 L15 20 L9 20 Z"/><path d="M6.5 10 Q12 6 17.5 10"/><path d="M10.5 6 q1.5 -2.5 3 0"/><line x1="14" y1="7" x2="16" y2="2.5"/>',
+  maple: '<path d="M5 21c.5 -4.5 2.5 -8 7 -10" /><path d="M13 19c-2.733 0 -4.16 -3.11 -5 -5c-1.892 -.84 -4 -1.826 -4 -4.556c1.014 -.644 2.816 -.649 4 -.444c-.312 -2.071 -.37 -4.414 1 -6c2.364 .369 3 4 3 4c1.463 -1.368 4 -2 6 -2c0 2 -.63 4.538 -2 6q 3.687 .996 4 3c-1.586 1.36 -3.933 1.311 -6 1q .19 1.098 -1 4" />'
+};
+const ICON_LABELS = { demitasse:'Demitasse', mug:'Mug', wide:'Cappuccino cup', iced:'Iced cup', blended:'Frappe cup', maple:'Maple leaf' };
+function guessDrinkIcon(name){
+  const n = String(name||'').toLowerCase();
+  if (n.includes('maple')) return 'maple';
+  if (n.includes('iced') || n.includes('cold')) return 'iced';
+  if (n.includes('frappe')) return 'blended';
+  if (n.includes('cappuccino') || n.includes('flat white')) return 'wide';
+  if (n.includes('cortado') || n.includes('espresso')) return 'demitasse';
+  return 'mug';
+}
+function iconFor(drink){ return ST.drinkIcons[drink] || guessDrinkIcon(drink); }
+function drinkIconSvg(key){
+  return `<svg class="dicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${DRINK_ICONS[key]||DRINK_ICONS.mug}</svg>`;
+}
+function iconOptions(selected){
+  return `<option value="">Auto</option>` + Object.keys(DRINK_ICONS).map(k=>
+    `<option value="${k}" ${k===selected?'selected':''}>${esc(ICON_LABELS[k])}</option>`).join('');
 }
 
 /* ---- MOCK data layer (PREVIEW ONLY — no backend, in-memory sample data) ---- */
@@ -273,6 +304,7 @@ const DB = {
     drink:['Espresso','Americano','Flat White','Cappuccino','Cortado','Iced Americano','Iced Latte','Iced Flat White','Vanilla Maple Frappe','Iced Cold Foam Americano'],
     barista:['Payal','Sameer'], person:['Payal','Sameer']
   },
+  drinkIcons: {},
   log: (function(){
     const drinks=['Espresso','Americano','Flat White','Cappuccino','Cortado','Iced Latte','Iced Americano','Vanilla Maple Frappe','Iced Cold Foam Americano'];
     const who=['Payal','Sameer','Sameer','Payal','Guest'];
@@ -296,7 +328,7 @@ function handle(p){
   switch(p.action){
     case 'getData': return {ok:true, beans:DB.beans.map(b=>({...b})),
       options:{drink:[...DB.options.drink],barista:[...DB.options.barista],person:[...DB.options.person]},
-      log:DB.log.map(l=>({...l}))};
+      log:DB.log.map(l=>({...l})), drinkIcons:{...DB.drinkIcons}};
     case 'log': { const b=DB.beans.find(x=>x.id===+p.beanId); const g=Math.max(0, Math.round((b.grams-17.5)*10)/10); b.grams=g;
       DB.log.push({ts:new Date().toISOString(),barista:p.barista,for:p.for,drink:p.drink,bean:b.name,grams:17.5});
       return {ok:true,beanId:b.id,grams:g}; }
@@ -315,13 +347,15 @@ function handle(p){
       if(p.delta!==undefined)b.grams=Math.max(0, Math.round((b.grams+(+p.delta))*10)/10);
       return {ok:true}; }
     case 'addOption': DB.options[p.category].push(p.value); return {ok:true};
-    case 'removeOption': { const a=DB.options[p.category]; const k=a.indexOf(p.value); if(k>=0)a.splice(k,1); return {ok:true}; }
+    case 'removeOption': { const a=DB.options[p.category]; const k=a.indexOf(p.value); if(k>=0)a.splice(k,1);
+      if(p.category==='drink') delete DB.drinkIcons[p.value]; return {ok:true}; }
+    case 'setDrinkIcon': { if(p.icon) DB.drinkIcons[p.drink]=p.icon; else delete DB.drinkIcons[p.drink]; return {ok:true}; }
     default: return {ok:false,error:'unknown'};
   }
 }
 
 /* ---- state ---- */
-let ST = { beans:[], drinks:[], baristas:[], people:[], log:[] };
+let ST = { beans:[], drinks:[], baristas:[], people:[], log:[], drinkIcons:{} };
 let tab = 'order';
 let sel = { beanId:null, drink:null, barista:null, forVal:null, forCustom:false };
 
@@ -345,10 +379,11 @@ function applyData(r){
   ST.baristas=(r.options&&r.options.barista)||[];
   ST.people=(r.options&&r.options.person)||[];
   ST.log=r.log||[];
+  ST.drinkIcons=r.drinkIcons||{};
 }
 function stToRaw(){ return {ok:true,
   beans:ST.beans.map(b=>({id:b.id,name:b.name,roaster:b.roaster,notes:b.notes,grind:b.grind,grams:b.grams,opened:b.opened,status:b.status,country:b.country,rating:b.rating})),
-  options:{drink:ST.drinks,barista:ST.baristas,person:ST.people}, log:ST.log}; }
+  options:{drink:ST.drinks,barista:ST.baristas,person:ST.people}, log:ST.log, drinkIcons:ST.drinkIcons}; }
 function cacheSaveFromST(){ cacheSave(stToRaw()); }
 
 /* ---- lazy chart library ---- */
@@ -393,7 +428,7 @@ function renderOrder(){
       ${countryWatermark(b.country)}
       <span>${esc(b.name)}</span><span class="sub ${low?'low':''}">${sub}</span></button>`;
   }).join('');
-  const drinkTiles = ST.drinks.map(d=>`<button class="tile tc drink ${sel.drink===d?'sel':''}" data-drink="${esc(d)}">${esc(d)}</button>`).join('');
+  const drinkTiles = ST.drinks.map(d=>`<button class="tile tc drink ${sel.drink===d?'sel':''}" data-drink="${esc(d)}">${drinkIconSvg(iconFor(d))}<span>${esc(d)}</span></button>`).join('');
   const baristaTiles = ST.baristas.map(b=>`<button class="tile tc short ${sel.barista===b?'sel':''}" data-barista="${esc(b)}">${esc(b)}</button>`).join('');
   const forTiles = ST.people.map(p=>`<button class="tile tc short ${(!sel.forCustom&&sel.forVal===p)?'sel':''}" data-for="${esc(p)}">${esc(p)}</button>`).join('')
     + `<button class="tile plus ${sel.forCustom?'sel':''}" id="forPlus">+</button>`;
@@ -467,7 +502,8 @@ async function renderStats(){
     <div class="chips" id="statChips">${chips.map(p=>`<button class="chip ${statPerson===p?'sel':''}" data-person="${esc(p)}">${esc(p)}</button>`).join('')}</div>
     <div class="card"><h3>Drinks by type</h3><div class="chartbox"><canvas id="c1"></canvas></div></div>
     <div class="card"><h3>Drinks by person</h3><div class="chartbox tall"><canvas id="c2"></canvas></div></div>
-    <div class="card"><h3>Drinks over time</h3><div class="chartbox tall"><canvas id="c3"></canvas></div></div>`;
+    <div class="card"><h3>Drinks over time</h3><div class="chartbox tall"><canvas id="c3"></canvas></div></div>
+    <div class="card"><h3>Drinks by country</h3><div class="chartbox tall"><canvas id="c4"></canvas></div></div>`;
   document.querySelectorAll('#statChips [data-person]').forEach(b=>b.onclick=()=>{ statPerson=b.dataset.person; renderStats(); });
 
   try{ await ensureChart(); }catch(e){ return; }
@@ -509,6 +545,14 @@ async function renderStats(){
       plugins:{legend:legendOpts,tooltip:{enabled:false}},
       scales:{x:{grid:{display:false},ticks:{autoSkip:true,maxTicksLimit:6,font:{size:10}}},
               y:{grid:{color:grid},ticks:{precision:0},beginAtZero:true}}}}));
+
+  // 4) by country — pie, unspecified beans grouped separately
+  const byCountry=tally(L.map(l=>{ const b=ST.beans.find(x=>x.name===l.bean); return (b&&b.country)||'Unspecified'; }));
+  const countryLabels=Object.keys(byCountry);
+  charts.push(new Chart($('#c4'),{type:'pie',
+    data:{labels:countryLabels,datasets:[{data:Object.values(byCountry),
+      backgroundColor:countryLabels.map((c,i)=>c==='Unspecified'?muted:PALETTE[i%PALETTE.length])}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:legendOpts,tooltip:{enabled:false}}}}));
 }
 function tally(arr){ const o={}; arr.forEach(v=>{ if(v==null||v==='')return; o[v]=(o[v]||0)+1; });
   return Object.fromEntries(Object.entries(o).sort((a,b)=>b[1]-a[1])); }
@@ -539,7 +583,7 @@ function renderMaint(){
 
   document.querySelectorAll('[data-opt-remove]').forEach(b=>b.onclick=()=>{
     const [cat,val]=JSON.parse(b.dataset.optRemove);
-    mutate(()=>{ const a=optArr(cat); const k=a.indexOf(val); if(k>=0) a.splice(k,1); },
+    mutate(()=>{ const a=optArr(cat); const k=a.indexOf(val); if(k>=0) a.splice(k,1); if(cat==='drink') delete ST.drinkIcons[val]; },
       {action:'removeOption',category:cat,value:val});
   });
   document.querySelectorAll('[data-opt-add]').forEach(f=>{
@@ -548,10 +592,20 @@ function renderMaint(){
       mutate(()=>{ optArr(cat).push(v); }, {action:'addOption',category:cat,value:v}); };
     btn.onclick=add; inp.onkeydown=e=>{ if(e.key==='Enter') add(); };
   });
+  document.querySelectorAll('[data-drink-icon]').forEach(sel=>{
+    sel.onchange=()=>{
+      const drink=sel.dataset.drinkIcon, icon=sel.value;
+      if(icon) ST.drinkIcons[drink]=icon; else delete ST.drinkIcons[drink];
+      cacheSaveFromST();
+      api({action:'setDrinkIcon',drink,icon}).then(r=>{ if(!r||!r.ok) throw 0; })
+        .catch(()=>{ errToast(); refresh().then(()=>{ tab==='maint'?renderMaint():render(); }).catch(()=>{}); });
+    };
+  });
   wireBeanCards();
 }
 function optSection(title,cat,items){
   const rows=(items||[]).map(v=>`<div class="row"><span class="nm">${esc(v)}</span>
+    ${cat==='drink'?`<select data-drink-icon="${esc(v)}">${iconOptions(ST.drinkIcons[v]||'')}</select>`:''}
     <button class="iconbtn" data-opt-remove='${esc(JSON.stringify([cat,v]))}'>&times;</button></div>`).join('');
   return `<div class="msec"><p class="eyebrow">${title}</p>${rows}
     <div class="addrow" data-opt-add="${cat}"><input autocomplete="off"><button>Add</button></div></div>`;
