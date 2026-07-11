@@ -6,10 +6,15 @@
 <meta name="theme-color" content="#211613">
 <title>Cranky</title>
 <link rel="icon" href="cranky-logo.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cranky">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 :root{
   --bg:#211613; --surface:#2E211C; --surface2:#3A2A23; --line:#4A3730;
@@ -237,6 +242,33 @@ function fmtDay(iso){ if(!iso) return ''; const d=new Date(iso.slice(0,10)+'T00:
   return isNaN(d)? iso : d.toLocaleDateString(undefined,{day:'numeric',month:'short'}); }
 function colorFor(drink){ const i=ST.drinks.indexOf(drink); return i<0? '#B3A093' : PALETTE[i%PALETTE.length]; }
 
+/* ---- cache (stale-while-revalidate) ---- */
+const CACHE_KEY='cranky_cache_v1';
+function cacheLoad(){ try{ const s=localStorage.getItem(CACHE_KEY); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function cacheSave(r){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(r)); }catch(e){} }
+function applyData(r){
+  ST.beans=(r.beans||[]).map(b=>({id:b.id,name:b.name,roaster:b.roaster,notes:b.notes,grind:b.grind,grams:Math.max(0,+b.grams||0),opened:b.opened,status:b.status||'active'}));
+  ST.drinks=(r.options&&r.options.drink)||[];
+  ST.baristas=(r.options&&r.options.barista)||[];
+  ST.people=(r.options&&r.options.person)||[];
+  ST.log=r.log||[];
+}
+function stToRaw(){ return {ok:true,
+  beans:ST.beans.map(b=>({id:b.id,name:b.name,roaster:b.roaster,notes:b.notes,grind:b.grind,grams:b.grams,opened:b.opened,status:b.status})),
+  options:{drink:ST.drinks,barista:ST.baristas,person:ST.people}, log:ST.log}; }
+function cacheSaveFromST(){ cacheSave(stToRaw()); }
+
+/* ---- lazy chart library ---- */
+const CHART_URL='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+let _chartLoad=null;
+function ensureChart(){
+  if(window.Chart) return Promise.resolve();
+  if(_chartLoad) return _chartLoad;
+  _chartLoad=new Promise((res,rej)=>{ const s=document.createElement('script');
+    s.src=CHART_URL; s.onload=res; s.onerror=()=>{_chartLoad=null; rej(new Error('chart'));}; document.head.appendChild(s); });
+  return _chartLoad;
+}
+
 /* ---- nav ---- */
 const NAV = [
   ['order','Order','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>'],
@@ -300,9 +332,9 @@ async function placeOrder(){
   try{
     const r=await api({action:'log',beanId:sel.beanId,barista:sel.barista,drink:sel.drink,for:sel.forVal});
     if(!r||!r.ok) throw new Error('bad');
-    if(bean) bean.grams=r.grams;
+    if(bean) bean.grams=Math.max(0, r.grams);
     ST.log.push({ts:new Date().toISOString(),barista:sel.barista,for:sel.forVal,drink:sel.drink,bean:bean?bean.name:'',grams:GRAMS_PER});
-    splash(); sel.drink=null; sel.forVal=sel.forCustom?'':null; sel.forCustom=false; renderOrder();
+    splash(); sel.drink=null; sel.forVal=sel.forCustom?'':null; sel.forCustom=false; cacheSaveFromST(); renderOrder();
   }catch(e){ btn.disabled=false; errToast(); }
 }
 function splash(){ const s=$('#splash'); s.querySelector('span').innerHTML=LOGO; s.classList.add('on'); setTimeout(()=>s.classList.remove('on'),900); }
@@ -327,7 +359,7 @@ $('#bSave').onclick=async()=>{
 /* ---------- STATS ---------- */
 let charts=[];
 let statPerson='All';
-function renderStats(){
+async function renderStats(){
   charts.forEach(c=>c.destroy()); charts=[];
   if(!ST.log.length){ view.innerHTML=stateBlock(false); return; }
 
@@ -343,6 +375,9 @@ function renderStats(){
     <div class="card"><h3>Drinks by person</h3><div class="chartbox tall"><canvas id="c2"></canvas></div></div>
     <div class="card"><h3>Drinks over time</h3><div class="chartbox tall"><canvas id="c3"></canvas></div></div>`;
   document.querySelectorAll('#statChips [data-person]').forEach(b=>b.onclick=()=>{ statPerson=b.dataset.person; renderStats(); });
+
+  try{ await ensureChart(); }catch(e){ return; }
+  if(tab!=='stats' || !document.getElementById('c1')) return;
 
   const L = statPerson==='All' ? ST.log : ST.log.filter(l=>l.for===statPerson);
   const muted='#B3A093', grid='rgba(179,160,147,.15)';
@@ -384,6 +419,21 @@ function renderStats(){
 function tally(arr){ const o={}; arr.forEach(v=>{ if(v==null||v==='')return; o[v]=(o[v]||0)+1; });
   return Object.fromEntries(Object.entries(o).sort((a,b)=>b[1]-a[1])); }
 
+/* optimistic write: update on screen now, sync in background, self-heal on failure */
+const optArr = cat => cat==='drink'?ST.drinks : cat==='barista'?ST.baristas : ST.people;
+const beanById = id => ST.beans.find(x=>x.id===id);
+async function mutate(apply, apiParams){
+  apply(); cacheSaveFromST(); renderMaint();
+  try{ const r=await api(apiParams); if(!r||!r.ok) throw 0; }
+  catch(e){ errToast(); try{ await refresh(); }catch(_){} renderMaint(); }
+}
+/* commit a single bean field to the sheet without blocking the UI; self-heal on failure */
+function commitBean(id, field, value){
+  const p={action:'updateBean',id}; p[field]=value;
+  api(p).then(r=>{ if(!r||!r.ok) throw 0; })
+    .catch(()=>{ errToast(); refresh().then(()=>{ tab==='maint'?renderMaint():render(); }).catch(()=>{}); });
+}
+
 /* ---------- MAINTENANCE ---------- */
 function renderMaint(){
   const shown=[...ST.beans].sort((a,b)=>((a.status==='active'?0:1)-(b.status==='active'?0:1))||b.id-a.id).slice(0,MAX_BEANS_SHOWN);
@@ -393,14 +443,15 @@ function renderMaint(){
     ${optSection('People','person',ST.people)}
     <div class="msec"><p class="eyebrow">Beans</p><div id="beansMaint">${shown.map(beanCard).join('')}</div></div>`;
 
-  document.querySelectorAll('[data-opt-remove]').forEach(b=>b.onclick=async()=>{
-    const [cat,val]=JSON.parse(b.dataset.optRemove); b.disabled=true;
-    try{ await api({action:'removeOption',category:cat,value:val}); await refresh(); renderMaint(); }catch(e){errToast();}
+  document.querySelectorAll('[data-opt-remove]').forEach(b=>b.onclick=()=>{
+    const [cat,val]=JSON.parse(b.dataset.optRemove);
+    mutate(()=>{ const a=optArr(cat); const k=a.indexOf(val); if(k>=0) a.splice(k,1); },
+      {action:'removeOption',category:cat,value:val});
   });
   document.querySelectorAll('[data-opt-add]').forEach(f=>{
     const cat=f.dataset.optAdd, inp=f.querySelector('input'), btn=f.querySelector('button');
-    const add=async()=>{ const v=inp.value.trim(); if(!v)return; btn.disabled=true;
-      try{ await api({action:'addOption',category:cat,value:v}); await refresh(); renderMaint(); }catch(e){errToast();btn.disabled=false;} };
+    const add=()=>{ const v=inp.value.trim(); if(!v)return;
+      mutate(()=>{ optArr(cat).push(v); }, {action:'addOption',category:cat,value:v}); };
     btn.onclick=add; inp.onkeydown=e=>{ if(e.key==='Enter') add(); };
   });
   wireBeanCards();
@@ -429,13 +480,17 @@ function wireBeanCards(){
   document.querySelectorAll('[data-bean-id]').forEach(card=>{
     const id=+card.dataset.beanId;
     const gr=card.querySelector('[data-grind]'), gm=card.querySelector('[data-grams]'), op=card.querySelector('[data-opened]');
-    gr.onchange=async()=>{ let v=gr.value===''?'':Math.max(0,Math.min(10,Math.round(+gr.value)));
-      await api({action:'updateBean',id,grind:v}); await refresh(); };
-    gm.onchange=async()=>{ await api({action:'updateBean',id,grams:+gm.value}); await refresh(); renderMaint(); };
-    op.onchange=async()=>{ await api({action:'updateBean',id,opened:op.value}); await refresh(); };
-    card.querySelector('[data-dec]').onclick=async()=>{ await api({action:'updateBean',id,delta:-GRAMS_PER}); await refresh(); renderMaint(); };
-    card.querySelector('[data-arch]').onclick=async()=>{ const b=ST.beans.find(x=>x.id===id);
-      await api({action:'updateBean',id,status:b.status==='active'?'archived':'active'}); await refresh(); renderMaint(); };
+    // grams: update data on every keystroke, sync to sheet shortly after typing stops
+    gm.oninput=()=>{ const v=Math.max(0, +gm.value||0); const b=beanById(id); if(b) b.grams=v; cacheSaveFromST();
+      clearTimeout(gm._t); gm._t=setTimeout(()=>commitBean(id,'grams',v),700); };
+    // grind: same live pattern, clamped 0â€“10
+    gr.oninput=()=>{ const v=gr.value===''?'':Math.max(0,Math.min(10,Math.round(+gr.value))); const b=beanById(id); if(b) b.grind=v; cacheSaveFromST();
+      clearTimeout(gr._t); gr._t=setTimeout(()=>commitBean(id,'grind',v),700); };
+    op.onchange=()=>{ const v=op.value; const b=beanById(id); if(b) b.opened=v; cacheSaveFromST(); commitBean(id,'opened',v); };
+    card.querySelector('[data-dec]').onclick=()=>{
+      mutate(()=>{ const b=beanById(id); b.grams=Math.max(0, Math.round((b.grams-GRAMS_PER)*10)/10); }, {action:'updateBean',id,delta:-GRAMS_PER}); };
+    card.querySelector('[data-arch]').onclick=()=>{ const b=beanById(id); const ns=b.status==='active'?'archived':'active';
+      mutate(()=>{ b.status=ns; }, {action:'updateBean',id,status:ns}); };
   });
 }
 
@@ -450,18 +505,22 @@ function errToast(){ const s=$('#splash'); s.querySelector('span').innerHTML='âš
 /* ---------- data ---------- */
 async function refresh(){
   const r=await api({action:'getData'}); if(!r||!r.ok) throw new Error('bad');
-  ST.beans=(r.beans||[]).map(b=>({id:b.id,name:b.name,roaster:b.roaster,notes:b.notes,grind:b.grind,grams:+b.grams,opened:b.opened,status:b.status||'active'}));
-  ST.drinks=(r.options&&r.options.drink)||[];
-  ST.baristas=(r.options&&r.options.barista)||[];
-  ST.people=(r.options&&r.options.person)||[];
-  ST.log=r.log||[];
+  applyData(r); cacheSave(r);
 }
 async function boot(){
   renderNav();
   if(API_URL.indexOf('PASTE_')===0){ render(); return; }
-  view.innerHTML=stateBlock(false);
-  try{ await refresh(); render(); }
-  catch(e){ view.innerHTML=stateBlock(true); const rb=$('#retryBtn'); if(rb) rb.onclick=boot; }
+  const cached=cacheLoad();
+  const prevSig=cached?JSON.stringify(cached):null;
+  if(cached){ applyData(cached); render(); }        // instant from cache
+  else { view.innerHTML=stateBlock(false); }         // first ever load
+  try{
+    const r=await api({action:'getData'}); if(!r||!r.ok) throw new Error('bad');
+    applyData(r); cacheSave(r);
+    if(JSON.stringify(r)!==prevSig) render();          // only redraw if something changed
+  }catch(e){
+    if(!cached){ view.innerHTML=stateBlock(true); const rb=$('#retryBtn'); if(rb) rb.onclick=boot; }
+  }
 }
 boot();
 </script>
