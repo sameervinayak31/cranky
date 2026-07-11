@@ -3,7 +3,7 @@
  * Bound to your Google Sheet. Deploy as a Web App (see SETUP.md).
  * Responds as JSONP so the GitHub Pages site can call it with no CORS setup.
  *
- * Beans columns: A name | B roaster | C notes | D grind | E grams | F opened | G status
+ * Beans columns: A name | B roaster | C notes | D grind | E grams | F opened | G status | H country | I rating
  */
 
 var GRAMS_PER = 17.5;
@@ -50,8 +50,12 @@ function ensureSetup(){
   var s = ss();
   if (!s.getSheetByName('Log'))
     s.insertSheet('Log').appendRow(['timestamp','barista','for','drink','bean','grams']);
-  if (!s.getSheetByName('Beans'))
-    s.insertSheet('Beans').appendRow(['name','roaster','notes','grind','grams','opened','status']);
+  var beans = s.getSheetByName('Beans');
+  if (!beans){
+    s.insertSheet('Beans').appendRow(['name','roaster','notes','grind','grams','opened','status','country','rating']);
+  } else if (beans.getRange(1,8).getValue() === ''){
+    beans.getRange(1,8,1,2).setValues([['country','rating']]);
+  }
   var opt = s.getSheetByName('Options');
   if (!opt){
     opt = s.insertSheet('Options');
@@ -68,10 +72,11 @@ function getData(){
   var s = ss();
   var bsheet = s.getSheetByName('Beans'), beans = [];
   if (bsheet.getLastRow() > 1){
-    bsheet.getRange(2,1,bsheet.getLastRow()-1,7).getValues().forEach(function(r,i){
+    bsheet.getRange(2,1,bsheet.getLastRow()-1,9).getValues().forEach(function(r,i){
       if (r[0]==='' && r[4]==='') return;
       beans.push({ id:i+2, name:r[0], roaster:r[1], notes:r[2], grind:r[3],
-                   grams:Number(r[4])||0, opened:ymd(r[5]), status:r[6]||'active' });
+                   grams:Number(r[4])||0, opened:ymd(r[5]), status:r[6]||'active',
+                   country:r[7]||'', rating:r[8]===''?'':Number(r[8]) });
     });
   }
   var osheet = s.getSheetByName('Options'), options = { drink:[], barista:[], person:[] };
@@ -107,7 +112,8 @@ function logDrink(p){
 
 function addBean(p){
   var grams = (p.grams===''||p.grams==null) ? 0 : Number(p.grams);
-  ss().getSheetByName('Beans').appendRow([p.name||'', p.roaster||'', p.notes||'', '', grams, p.opened||'', 'active']);
+  var rating = (p.rating===''||p.rating==null) ? '' : Number(p.rating);
+  ss().getSheetByName('Beans').appendRow([p.name||'', p.roaster||'', p.notes||'', '', grams, p.opened||'', 'active', p.country||'', rating]);
   return { ok:true };
 }
 
@@ -123,6 +129,8 @@ function updateBean(p){
     if (p.grams   !== undefined) beans.getRange(row,5).setValue(Number(p.grams));
     if (p.opened  !== undefined) beans.getRange(row,6).setValue(p.opened);
     if (p.status  !== undefined) beans.getRange(row,7).setValue(p.status);
+    if (p.country !== undefined) beans.getRange(row,8).setValue(p.country);
+    if (p.rating  !== undefined) beans.getRange(row,9).setValue(p.rating===''?'':Number(p.rating));
     if (p.delta   !== undefined){
       var cur = Number(beans.getRange(row,5).getValue())||0;
       beans.getRange(row,5).setValue(Math.round((cur+Number(p.delta))*10)/10);
