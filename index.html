@@ -628,6 +628,7 @@ function optSection(title,cat,items){
 }
 function beanCard(b){
   const low=b.grams<=LOW_AT, arch=b.status!=='active';
+  const cupsLeft = b.grams>GRAMS_PER ? Math.floor(b.grams/GRAMS_PER) : null;
   return `<div class="beancard ${arch?'arch':''}" data-bean-id="${b.id}">
     <div class="bhead">
       <div class="bidfields">
@@ -639,7 +640,7 @@ function beanCard(b){
           <input class="bvariety" data-variety value="${esc(b.variety)}" placeholder="Variety" autocomplete="off">
         </div>
       </div>
-      <span class="pill ${low?'warn':''}">${fmt(b.grams)}g${low?' · Low':''}</span>
+      <span class="pill ${low?'warn':''}">${fmt(b.grams)}g${low?' · Low':''}${cupsLeft!=null?` · ${cupsLeft} cups left`:''}</span>
     </div>
     <div class="ctrls">
       <div class="ctl"><span class="k">Country</span><select data-country>${countryOptions(b.country)}</select></div>
