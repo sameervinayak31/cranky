@@ -36,10 +36,15 @@ input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 
 /* shell */
-.wrap{max-width:480px;margin:0 auto;padding:20px 18px 24px}
-.topbar{display:flex;align-items:center;justify-content:center;gap:12px;padding:6px 2px 16px;margin-bottom:20px;border-bottom:1.5px solid var(--tile)}
+.wrap{max-width:480px;margin:0 auto;padding:calc(20px + env(safe-area-inset-top)) 18px 24px}
+.topbar{display:flex;align-items:center;justify-content:center;gap:12px;padding:6px 2px 16px;margin-bottom:20px;border-bottom:1.5px solid var(--tile);position:relative}
 .topbar svg{width:40px;height:40px;flex:none}
 .mark{font-family:'Anton',sans-serif;font-size:52px;letter-spacing:4px;text-transform:uppercase;line-height:1}
+.refreshBtn{position:absolute;right:0;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);padding:8px}
+.refreshBtn svg{width:20px;height:20px}
+.refreshBtn:disabled{opacity:.5}
+.refreshBtn.spin svg{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* order form */
 .field{margin-bottom:22px}
@@ -66,6 +71,10 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .tile.sel .sub{color:var(--accent)}
 .tile .sub.low{color:var(--low)}
 .tile.plus{color:var(--muted);font-weight:700;font-size:22px;align-items:center;justify-content:center;min-height:50px}
+.moodgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.tile.mood{padding:9px 2px;gap:4px}
+.tile.mood svg{width:22px;height:22px}
+.tile.mood .moodlbl{font-size:9px;font-weight:600;line-height:1.1}
 .forinput{
   margin-top:9px;width:100%;background:var(--surface);border:1.5px solid var(--tile);
   border-radius:14px;padding:13px 14px;color:var(--cream);font-size:15px;
@@ -79,8 +88,11 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   font-size:22px;padding:18px;margin-top:6px;transition:.12s;}
 .order:active{transform:scale(.98)}
 .order:disabled{background:var(--surface2);color:var(--muted)}
-.addbeans{width:100%;background:transparent;border:1.5px solid var(--line);border-radius:16px;
-  color:var(--cream);font-weight:600;font-size:15px;padding:15px;margin-top:12px;}
+.tile.addtile{background:transparent;border:1.5px dashed var(--line);color:var(--muted)}
+.tile.addtile .addicon{font-size:20px;font-weight:700;line-height:1}
+.tile.addtile .sub{color:var(--muted)}
+.tile.addtile.sel{border-style:solid;border-color:var(--accent);background:rgba(255,122,61,.14);color:var(--cream)}
+.addbeans{width:100%;background:transparent;border:1.5px dashed var(--line);border-radius:14px;color:var(--muted);font-weight:600;font-size:15px;padding:14px;margin-bottom:18px}
 .addbeans:active{transform:scale(.99)}
 
 /* confirm splash */
@@ -147,6 +159,15 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .ctl select{background:none;border:none;color:var(--cream);font-size:13px;font-weight:600;font-family:inherit}
 .ctl select:focus{outline:none}
 .step{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;color:var(--cream)}
+.step.save{background:var(--accent);border-color:var(--accent);color:#241009;font-weight:700}
+.beancard .bidfields{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.beancard .bidfields input{background:none;border:none;padding:0;width:100%;font-family:inherit;color:var(--cream)}
+.beancard input.bname{font-weight:700;font-size:16px}
+.beancard input.broaster,.beancard input.bnotes,.beancard input.bprocess,.beancard input.bvariety{color:var(--muted);font-size:13px}
+.beancard .bpair{display:flex;gap:10px;margin-top:1px}
+.beancard .bpair input{min-width:0}
+.beancard .bidfields input::placeholder{color:var(--muted);opacity:.6}
+.beancard .bidfields input:focus{outline:none;border-bottom:1px solid var(--accent)}
 .pill{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;color:var(--cream)}
 .pill.warn{color:var(--low)}
 
@@ -175,7 +196,11 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 <body>
 
 <div class="wrap">
-  <div class="topbar" id="topbar"><span class="mark">Cranky</span></div>
+  <div class="topbar" id="topbar"><span class="mark">Cranky</span>
+    <button class="refreshBtn" id="refreshBtn" aria-label="Refresh">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg>
+    </button>
+  </div>
   <div id="view"></div>
 </div>
 
@@ -185,8 +210,12 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
     <label class="lbl">Name</label><input class="inp" id="bName" autocomplete="off">
     <label class="lbl">Roaster</label><input class="inp" id="bRoaster" autocomplete="off">
     <label class="lbl">Notes</label><input class="inp" id="bNotes" autocomplete="off">
+    <label class="lbl">Process (optional)</label><input class="inp" id="bProcess" autocomplete="off">
+    <label class="lbl">Variety (optional)</label><input class="inp" id="bVariety" autocomplete="off">
     <label class="lbl">Grams</label><input class="inp" id="bGrams" type="text" inputmode="decimal" autocomplete="off">
     <label class="lbl">Date opened</label><input class="inp" id="bOpened" type="date">
+    <label class="lbl">Roast date (optional)</label><input class="inp" id="bRoastDate" type="date">
+    <label class="lbl">Cost, &pound; (optional)</label><input class="inp" id="bCost" type="text" inputmode="decimal" autocomplete="off">
     <label class="lbl">Country</label><select class="inp" id="bCountry"></select>
     <label class="lbl">Our rating</label><input class="inp" id="bRating" type="number" min="1" max="10" step="1" inputmode="numeric" autocomplete="off">
     <button class="order" id="bSave">Add new beans</button>
@@ -204,7 +233,6 @@ const API_URL = "https://script.google.com/macros/s/AKfycbztRTXRv3VnDga0a2896gZJ
 
 const GRAMS_PER = 17.5;
 const LOW_AT = 52.5;
-const MAX_BEANS_SHOWN = 5;
 
 const PALETTE = ['#C4663A','#3E6E8E','#E0895B','#6FA1C4','#9C4A24','#274B63','#EFAE82','#9DC3DE','#B5713F','#517390'];
 
@@ -287,6 +315,18 @@ function iconOptions(selected){
     `<option value="${k}" ${k===selected?'selected':''}>${esc(ICON_LABELS[k])}</option>`).join('');
 }
 
+/* ---- mood icons ("How you feeling") ---- */
+const MOODS = [
+  ['cranky','Cranky','<path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M7,7.8 L10.7,9.5"/><path d="M17,7.8 L13.3,9.5"/><path d="M9,11.2 l.01,0"/><path d="M15,11.2 l.01,0"/><path d="M9,16.2 Q12,13.5 15,16.2"/>'],
+  ['ded','Ded','<path d="M20.983 12.556a9 9 0 1 0 -8.433 8.427"/><path d="M9 10h.01"/><path d="M15 10h.01"/><path d="M9.5 15c.658 .64 1.56 1 2.5 1c.194 0 .386 -.015 .574 -.045"/><path d="M21.5 21.5l-5 -5"/><path d="M16.5 21.5l5 -5"/>'],
+  ['good','Good','<path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M9 9l.01 0"/><path d="M15 9l.01 0"/><path d="M8 13a4 4 0 1 0 8 0h-8"/>'],
+  ['hungry','Hungry','<path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3"/>'],
+  ['jittery','Jittery','<path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11"/>']
+];
+function moodIconSvg(d){
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+}
+
 /* ---- JSONP data layer (sidesteps Apps Script CORS) ---- */
 let _cb = 0;
 function api(params){
@@ -306,7 +346,7 @@ function api(params){
 /* ---- state ---- */
 let ST = { beans:[], drinks:[], baristas:[], people:[], log:[], drinkIcons:{} };
 let tab = 'order';
-let sel = { beanId:null, drink:null, barista:null, forVal:null, forCustom:false };
+let sel = { beanId:null, drink:null, barista:null, forVal:null, forCustom:false, mood:null };
 
 const $ = s=>document.querySelector(s);
 const view = $('#view');
@@ -323,7 +363,9 @@ function cacheLoad(){ try{ const s=localStorage.getItem(CACHE_KEY); return s?JSO
 function cacheSave(r){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(r)); }catch(e){} }
 function applyData(r){
   ST.beans=(r.beans||[]).map(b=>({id:b.id,name:b.name,roaster:b.roaster,notes:b.notes,grind:b.grind,grams:Math.max(0,+b.grams||0),opened:b.opened,status:b.status||'active',
-    country:b.country||'',rating:(b.rating===''||b.rating==null)?'':Number(b.rating)}));
+    country:b.country||'',rating:(b.rating===''||b.rating==null)?'':Number(b.rating),
+    process:b.process||'',variety:b.variety||'',roastDate:b.roastDate||'',
+    cost:(b.cost===''||b.cost==null)?'':Number(b.cost)}));
   ST.drinks=(r.options&&r.options.drink)||[];
   ST.baristas=(r.options&&r.options.barista)||[];
   ST.people=(r.options&&r.options.person)||[];
@@ -331,7 +373,7 @@ function applyData(r){
   ST.drinkIcons=r.drinkIcons||{};
 }
 function stToRaw(){ return {ok:true,
-  beans:ST.beans.map(b=>({id:b.id,name:b.name,roaster:b.roaster,notes:b.notes,grind:b.grind,grams:b.grams,opened:b.opened,status:b.status,country:b.country,rating:b.rating})),
+  beans:ST.beans.map(b=>({id:b.id,name:b.name,roaster:b.roaster,notes:b.notes,grind:b.grind,grams:b.grams,opened:b.opened,status:b.status,country:b.country,rating:b.rating,process:b.process,variety:b.variety,roastDate:b.roastDate,cost:b.cost})),
   options:{drink:ST.drinks,barista:ST.baristas,person:ST.people}, log:ST.log, drinkIcons:ST.drinkIcons}; }
 function cacheSaveFromST(){ cacheSave(stToRaw()); }
 
@@ -349,6 +391,7 @@ function ensureChart(){
 /* ---- nav ---- */
 const NAV = [
   ['order','Order','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>'],
+  ['beans','Beans','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12,3 C16.5,3 19,7 19,12 C19,17 16.5,21 12,21 C7.5,21 5,17 5,12 C5,7 7.5,3 12,3 Z"/><path d="M12.5,4.5 C10,8.5 14.5,9.5 12,13 C10,15.5 13.5,16.5 11.5,19.5"/></svg>'],
   ['stats','Stats','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="9"/></svg>'],
   ['maint','Maintenance','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.1 2.1-2.1-.6-.6-2.1Z"/></svg>']
 ];
@@ -363,6 +406,7 @@ function render(){
   if(API_URL.indexOf('PASTE_')===0){ view.innerHTML =
     `<div class="config">Add your Apps Script Web App URL to <code>API_URL</code> at the top of <code>index.html</code>, then reload.</div>`; return; }
   if(tab==='order') renderOrder();
+  if(tab==='beans') renderBeans();
   if(tab==='stats') renderStats();
   if(tab==='maint') renderMaint();
 }
@@ -379,20 +423,22 @@ function renderOrder(){
       ${countryWatermark(b.country)}
       <span>${esc(b.name)}</span><span class="sub ${low?'low':''}">${sub}</span></button>`;
   }).join('');
+  const addBeanTile = `<button class="tile bean tc addtile" id="addBtn"><span class="addicon">+</span><span class="sub">Add new beans</span></button>`;
   const drinkTiles = ST.drinks.map(d=>`<button class="tile tc drink ${sel.drink===d?'sel':''}" data-drink="${esc(d)}">${drinkIconSvg(iconFor(d))}<span>${esc(d)}</span></button>`).join('');
   const baristaTiles = ST.baristas.map(b=>`<button class="tile tc short ${sel.barista===b?'sel':''}" data-barista="${esc(b)}">${esc(b)}</button>`).join('');
   const forTiles = ST.people.map(p=>`<button class="tile tc short ${(!sel.forCustom&&sel.forVal===p)?'sel':''}" data-for="${esc(p)}">${esc(p)}</button>`).join('')
-    + `<button class="tile plus ${sel.forCustom?'sel':''}" id="forPlus">+</button>`;
+    + `<button class="tile plus addtile ${sel.forCustom?'sel':''}" id="forPlus">+</button>`;
+  const moodTiles = MOODS.map(([id,label,ic])=>`<button class="tile mood tc ${sel.mood===id?'sel':''}" data-mood="${id}">${moodIconSvg(ic)}<span class="moodlbl">${esc(label)}</span></button>`).join('');
   const ready = sel.beanId!=null && sel.drink && sel.barista && (sel.forCustom?(sel.forVal&&sel.forVal.trim()):sel.forVal);
 
   view.innerHTML = `
-    <div class="field"><p class="eyebrow">Beans</p><div class="grid" id="beanRow">${beanTiles}</div></div>
+    <div class="field"><p class="eyebrow">Beans</p><div class="grid" id="beanRow">${beanTiles}${addBeanTile}</div></div>
     <div class="field"><p class="eyebrow">Drink</p><div class="grid" id="drinkRow">${drinkTiles}</div></div>
     <div class="field"><p class="eyebrow">Barista</p><div class="grid" id="barRow">${baristaTiles}</div></div>
     <div class="field"><p class="eyebrow">For</p><div class="grid" id="forRow">${forTiles}</div>
       <input class="forinput ${sel.forCustom?'sel':''} ${sel.forCustom?'':'hide'}" id="forInput" placeholder="Name" value="${sel.forCustom?esc(sel.forVal||''):''}"></div>
-    <button class="order" id="orderBtn" ${ready?'':'disabled'}>Order up</button>
-    <button class="addbeans" id="addBtn">Add new beans</button>`;
+    <div class="field"><p class="eyebrow">How you feeling</p><div class="moodgrid" id="moodRow">${moodTiles}</div></div>
+    <button class="order" id="orderBtn" ${ready?'':'disabled'}>Order up</button>`;
 
   $('#beanRow').querySelectorAll('[data-bean]').forEach(b=>b.onclick=()=>{sel.beanId=+b.dataset.bean;renderOrder();});
   $('#drinkRow').querySelectorAll('[data-drink]').forEach(b=>b.onclick=()=>{sel.drink=b.dataset.drink;renderOrder();});
@@ -400,6 +446,7 @@ function renderOrder(){
   $('#forRow').querySelectorAll('[data-for]').forEach(b=>b.onclick=()=>{sel.forCustom=false;sel.forVal=b.dataset.for;renderOrder();});
   $('#forPlus').onclick=()=>{sel.forCustom=true;sel.forVal='';renderOrder();setTimeout(()=>$('#forInput').focus(),0);};
   const fi=$('#forInput'); if(fi) fi.oninput=()=>{sel.forVal=fi.value; $('#orderBtn').disabled=!(sel.beanId!=null&&sel.drink&&sel.barista&&fi.value.trim());};
+  $('#moodRow').querySelectorAll('[data-mood]').forEach(b=>b.onclick=()=>{sel.mood = sel.mood===b.dataset.mood ? null : b.dataset.mood; renderOrder();});
   $('#addBtn').onclick=openBeanSheet;
   $('#orderBtn').onclick=placeOrder;
 }
@@ -408,17 +455,18 @@ async function placeOrder(){
   const btn=$('#orderBtn'); btn.disabled=true;
   const bean=ST.beans.find(b=>b.id===sel.beanId);
   try{
-    const r=await api({action:'log',beanId:sel.beanId,barista:sel.barista,drink:sel.drink,for:sel.forVal});
+    const r=await api({action:'log',beanId:sel.beanId,barista:sel.barista,drink:sel.drink,for:sel.forVal,mood:sel.mood||''});
     if(!r||!r.ok) throw new Error('bad');
     if(bean) bean.grams=Math.max(0, r.grams);
-    ST.log.push({ts:new Date().toISOString(),barista:sel.barista,for:sel.forVal,drink:sel.drink,bean:bean?bean.name:'',grams:GRAMS_PER});
-    splash(); sel.drink=null; sel.forVal=sel.forCustom?'':null; sel.forCustom=false; cacheSaveFromST(); renderOrder();
+    ST.log.push({ts:new Date().toISOString(),barista:sel.barista,for:sel.forVal,drink:sel.drink,bean:bean?bean.name:'',grams:GRAMS_PER,mood:sel.mood||''});
+    splash(); sel.drink=null; sel.forVal=sel.forCustom?'':null; sel.forCustom=false; sel.mood=null; cacheSaveFromST(); renderOrder();
   }catch(e){ btn.disabled=false; errToast(); }
 }
 function splash(){ const s=$('#splash'); s.querySelector('span').innerHTML=LOGO; s.classList.add('on'); setTimeout(()=>s.classList.remove('on'),900); }
 
 /* ---------- ADD BEANS ---------- */
 function openBeanSheet(){ $('#bName').value='';$('#bRoaster').value='';$('#bNotes').value='';$('#bGrams').value='';
+  $('#bProcess').value='';$('#bVariety').value='';$('#bRoastDate').value='';$('#bCost').value='';
   $('#bOpened').value=new Date().toISOString().slice(0,10); $('#bCountry').innerHTML=countryOptions(''); $('#bRating').value='';
   $('#beanScrim').classList.add('on'); setTimeout(()=>$('#bName').focus(),0); }
 function closeBeanSheet(){ $('#beanScrim').classList.remove('on'); }
@@ -430,9 +478,11 @@ $('#bSave').onclick=async()=>{
   try{
     const r=await api({action:'addBean',name,roaster:$('#bRoaster').value.trim(),notes:$('#bNotes').value.trim(),
       grams:$('#bGrams').value||0,opened:$('#bOpened').value||'',
-      country:$('#bCountry').value||'',rating:$('#bRating').value||''});
+      country:$('#bCountry').value||'',rating:$('#bRating').value||'',
+      process:$('#bProcess').value.trim(),variety:$('#bVariety').value.trim(),
+      roastDate:$('#bRoastDate').value||'',cost:$('#bCost').value||''});
     if(!r||!r.ok) throw new Error('bad');
-    await refresh(); closeBeanSheet(); if(tab==='order') renderOrder();
+    await refresh(); closeBeanSheet(); if(tab==='order') renderOrder(); if(tab==='beans') renderBeans();
   }catch(e){ errToast(); } finally{ btn.disabled=false; }
 };
 
@@ -511,26 +561,32 @@ function tally(arr){ const o={}; arr.forEach(v=>{ if(v==null||v==='')return; o[v
 /* optimistic write: update on screen now, sync in background, self-heal on failure */
 const optArr = cat => cat==='drink'?ST.drinks : cat==='barista'?ST.baristas : ST.people;
 const beanById = id => ST.beans.find(x=>x.id===id);
+const renderCur = ()=>{ tab==='maint'?renderMaint() : tab==='beans'?renderBeans() : render(); };
+/* guards double-taps on actions that re-render (and thus swap out) their own button mid-flight */
+const pendingBeanActions = new Set();
+function guardedMutate(key, apply, apiParams){
+  if (pendingBeanActions.has(key)) return;
+  pendingBeanActions.add(key);
+  mutate(apply, apiParams).finally(()=>pendingBeanActions.delete(key));
+}
 async function mutate(apply, apiParams){
-  apply(); cacheSaveFromST(); renderMaint();
+  apply(); cacheSaveFromST(); renderCur();
   try{ const r=await api(apiParams); if(!r||!r.ok) throw 0; }
-  catch(e){ errToast(); try{ await refresh(); }catch(_){} renderMaint(); }
+  catch(e){ errToast(); try{ await refresh(); }catch(_){} renderCur(); }
 }
 /* commit a single bean field to the sheet without blocking the UI; self-heal on failure */
 function commitBean(id, field, value){
   const p={action:'updateBean',id}; p[field]=value;
   api(p).then(r=>{ if(!r||!r.ok) throw 0; })
-    .catch(()=>{ errToast(); refresh().then(()=>{ tab==='maint'?renderMaint():render(); }).catch(()=>{}); });
+    .catch(()=>{ errToast(); refresh().then(renderCur).catch(()=>{}); });
 }
 
 /* ---------- MAINTENANCE ---------- */
 function renderMaint(){
-  const shown=[...ST.beans].sort((a,b)=>((a.status==='active'?0:1)-(b.status==='active'?0:1))||b.id-a.id).slice(0,MAX_BEANS_SHOWN);
   view.innerHTML=`<h1 class="page-title">Maintenance</h1>
     ${optSection('Drink types','drink',ST.drinks)}
     ${optSection('Baristas','barista',ST.baristas)}
-    ${optSection('People','person',ST.people)}
-    <div class="msec"><p class="eyebrow">Beans</p><div id="beansMaint">${shown.map(beanCard).join('')}</div></div>`;
+    ${optSection('People','person',ST.people)}`;
 
   document.querySelectorAll('[data-opt-remove]').forEach(b=>b.onclick=()=>{
     const [cat,val]=JSON.parse(b.dataset.optRemove);
@@ -549,9 +605,18 @@ function renderMaint(){
       if(icon) ST.drinkIcons[drink]=icon; else delete ST.drinkIcons[drink];
       cacheSaveFromST();
       api({action:'setDrinkIcon',drink,icon}).then(r=>{ if(!r||!r.ok) throw 0; })
-        .catch(()=>{ errToast(); refresh().then(()=>{ tab==='maint'?renderMaint():render(); }).catch(()=>{}); });
+        .catch(()=>{ errToast(); refresh().then(renderCur).catch(()=>{}); });
     };
   });
+}
+
+/* ---------- BEANS ---------- */
+function renderBeans(){
+  const shown=[...ST.beans].sort((a,b)=>((a.status==='active'?0:1)-(b.status==='active'?0:1))||b.id-a.id);
+  view.innerHTML=`<h1 class="page-title">Beans</h1>
+    <button class="addbeans" id="addBtnBeans">Add new beans</button>
+    <div id="beansList">${shown.map(beanCard).join('')}</div>`;
+  $('#addBtnBeans').onclick=openBeanSheet;
   wireBeanCards();
 }
 function optSection(title,cat,items){
@@ -563,16 +628,28 @@ function optSection(title,cat,items){
 }
 function beanCard(b){
   const low=b.grams<=LOW_AT, arch=b.status!=='active';
-  const sub=[b.roaster,b.notes].filter(Boolean).map(esc).join(' · ');
   return `<div class="beancard ${arch?'arch':''}" data-bean-id="${b.id}">
-    <div class="bhead"><div><div class="bname">${esc(b.name)}</div>${sub?`<div class="bnotes">${sub}</div>`:''}</div>
-      <span class="pill ${low?'warn':''}">${fmt(b.grams)}g${low?' · Low':''}</span></div>
+    <div class="bhead">
+      <div class="bidfields">
+        <input class="bname" data-name value="${esc(b.name)}" placeholder="Name" autocomplete="off">
+        <input class="broaster" data-roaster value="${esc(b.roaster)}" placeholder="Roaster" autocomplete="off">
+        <input class="bnotes" data-notes value="${esc(b.notes)}" placeholder="Notes" autocomplete="off">
+        <div class="bpair">
+          <input class="bprocess" data-process value="${esc(b.process)}" placeholder="Process" autocomplete="off">
+          <input class="bvariety" data-variety value="${esc(b.variety)}" placeholder="Variety" autocomplete="off">
+        </div>
+      </div>
+      <span class="pill ${low?'warn':''}">${fmt(b.grams)}g${low?' · Low':''}</span>
+    </div>
     <div class="ctrls">
+      <div class="ctl"><span class="k">Country</span><select data-country>${countryOptions(b.country)}</select></div>
+      <div class="ctl"><span class="k">Roast date</span><input type="date" data-roast value="${b.roastDate?esc(b.roastDate.slice(0,10)):''}"></div>
+      <div class="ctl"><span class="k">Opened</span><input type="date" data-opened value="${b.opened?esc(b.opened.slice(0,10)):''}"></div>
       <div class="ctl"><span class="k">Grind</span><input type="number" min="0" max="10" step="1" data-grind value="${b.grind===''||b.grind==null?'':b.grind}"></div>
       <div class="ctl"><span class="k">Grams</span><input type="number" step="0.5" data-grams value="${fmt(b.grams)}"></div>
-      <div class="ctl"><span class="k">Opened</span><input type="date" data-opened value="${b.opened?esc(b.opened.slice(0,10)):''}"></div>
-      <div class="ctl"><span class="k">Country</span><select data-country>${countryOptions(b.country)}</select></div>
+      <div class="ctl"><span class="k">Cost, &pound;</span><input type="number" step="0.01" min="0" data-cost value="${b.cost===''||b.cost==null?'':b.cost}"></div>
       <div class="ctl"><span class="k">Our rating</span><input type="number" min="1" max="10" step="1" data-rating value="${b.rating===''||b.rating==null?'':b.rating}"></div>
+      <button class="step save hide" data-save>Save</button>
       <button class="step" data-dec>&minus;17.5g</button>
       <button class="step" data-arch>${arch?'Restore':'Donezo'}</button>
     </div></div>`;
@@ -588,14 +665,41 @@ function wireBeanCards(){
     gr.oninput=()=>{ const v=gr.value===''?'':Math.max(0,Math.min(10,Math.round(+gr.value))); const b=beanById(id); if(b) b.grind=v; cacheSaveFromST();
       clearTimeout(gr._t); gr._t=setTimeout(()=>commitBean(id,'grind',v),700); };
     op.onchange=()=>{ const v=op.value; const b=beanById(id); if(b) b.opened=v; cacheSaveFromST(); commitBean(id,'opened',v); };
+    const rd=card.querySelector('[data-roast]');
+    rd.onchange=()=>{ const v=rd.value; const b=beanById(id); if(b) b.roastDate=v; cacheSaveFromST(); commitBean(id,'roastDate',v); };
+    // name/roaster/notes/process/variety: explicit save button, appears once any is edited
+    const nameIn=card.querySelector('[data-name]'), roasterIn=card.querySelector('[data-roaster]'),
+          notesIn=card.querySelector('[data-notes]'), processIn=card.querySelector('[data-process]'),
+          varietyIn=card.querySelector('[data-variety]'), saveBtn=card.querySelector('[data-save]');
+    const idInputs={name:nameIn, roaster:roasterIn, notes:notesIn, process:processIn, variety:varietyIn};
+    const orig={name:nameIn.value, roaster:roasterIn.value, notes:notesIn.value, process:processIn.value, variety:varietyIn.value};
+    const checkDirty=()=>{ const dirty = Object.keys(idInputs).some(k=>idInputs[k].value!==orig[k]);
+      saveBtn.classList.toggle('hide', !dirty); };
+    const saveIds=()=>{
+      const name=nameIn.value.trim();
+      if(!name){ nameIn.focus(); return; }
+      const vals={name, roaster:roasterIn.value.trim(), notes:notesIn.value.trim(),
+        process:processIn.value.trim(), variety:varietyIn.value.trim()};
+      const b=beanById(id); if(b) Object.assign(b, vals);
+      Object.keys(idInputs).forEach(k=>{ idInputs[k].value=vals[k]; orig[k]=vals[k]; });
+      cacheSaveFromST(); saveBtn.classList.add('hide');
+      api(Object.assign({action:'updateBean',id}, vals)).then(r=>{ if(!r||!r.ok) throw 0; })
+        .catch(()=>{ errToast(); refresh().then(renderCur).catch(()=>{}); });
+    };
+    Object.values(idInputs).forEach(inp=>{ inp.oninput=checkDirty;
+      inp.onkeydown=e=>{ if(e.key==='Enter'){ inp.blur(); if(!saveBtn.classList.contains('hide')) saveIds(); } }; });
+    saveBtn.onclick=saveIds;
     const co=card.querySelector('[data-country]'), ra=card.querySelector('[data-rating]');
     co.onchange=()=>{ const v=co.value; const b=beanById(id); if(b) b.country=v; cacheSaveFromST(); commitBean(id,'country',v); };
     ra.oninput=()=>{ const v=ra.value===''?'':Math.max(1,Math.min(10,Math.round(+ra.value||0))); const b=beanById(id); if(b) b.rating=v; cacheSaveFromST();
       clearTimeout(ra._t); ra._t=setTimeout(()=>commitBean(id,'rating',v),700); };
+    const cs=card.querySelector('[data-cost]');
+    cs.oninput=()=>{ const v=cs.value===''?'':Math.max(0,+cs.value||0); const b=beanById(id); if(b) b.cost=v; cacheSaveFromST();
+      clearTimeout(cs._t); cs._t=setTimeout(()=>commitBean(id,'cost',v),700); };
     card.querySelector('[data-dec]').onclick=()=>{
-      mutate(()=>{ const b=beanById(id); b.grams=Math.max(0, Math.round((b.grams-GRAMS_PER)*10)/10); }, {action:'updateBean',id,delta:-GRAMS_PER}); };
+      guardedMutate(id+':dec', ()=>{ const b=beanById(id); b.grams=Math.max(0, Math.round((b.grams-GRAMS_PER)*10)/10); }, {action:'updateBean',id,delta:-GRAMS_PER}); };
     card.querySelector('[data-arch]').onclick=()=>{ const b=beanById(id); const ns=b.status==='active'?'archived':'active';
-      mutate(()=>{ b.status=ns; }, {action:'updateBean',id,status:ns}); };
+      guardedMutate(id+':arch', ()=>{ b.status=ns; }, {action:'updateBean',id,status:ns}); };
   });
 }
 
@@ -606,6 +710,15 @@ function stateBlock(isError){
 }
 function errToast(){ const s=$('#splash'); s.querySelector('span').innerHTML='⚠️'; s.classList.add('on');
   setTimeout(()=>{s.classList.remove('on'); setTimeout(()=>s.querySelector('span').innerHTML=LOGO,250);},1100); }
+
+/* ---------- force refresh ---------- */
+$('#refreshBtn').onclick=async()=>{
+  const btn=$('#refreshBtn'); if(btn.disabled) return;
+  btn.disabled=true; btn.classList.add('spin');
+  try{ await refresh(); render(); }
+  catch(e){ errToast(); }
+  finally{ btn.disabled=false; btn.classList.remove('spin'); }
+};
 
 /* ---------- data ---------- */
 async function refresh(){

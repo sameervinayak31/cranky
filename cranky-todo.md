@@ -58,14 +58,15 @@ Ideas discussed but not yet built, with enough detail to pick up cold later.
 
 ## Project context (to regain footing)
 
-**Architecture:** one static `index.html` on GitHub Pages + Google Apps Script (`Code.gs`) bound to a Google Sheet. Data over JSONP GET (sidesteps Apps Script CORS).
+**Architecture:** one static `index.html` on GitHub Pages + Google Apps Script (`Code.gs`) bound to a Google Sheet. Data over JSONP GET (sidesteps Apps Script CORS). Nav is 4 tabs: Order, Beans, Stats, Maintenance.
 
 - Sheet tabs: `Log`, `Beans`, `Options`, `DrinkIcons`.
-- Beans columns: `name | roaster | notes | grind | grams | opened | status | country | rating` — id = sheet row number (beans are archived, never deleted, so ids stay stable). `country` is picked from a curated 22-country dropdown (`COUNTRIES`/`COUNTRY_PATHS` in `index.html`) so it always has a matching silhouette; `rating` is 1-10, Maintenance-only.
+- Beans columns: `name | roaster | notes | grind | grams | opened | status | country | rating | process | variety | roastDate | cost` — id = sheet row number (beans are archived, never deleted, so ids stay stable). `country` is picked from a curated 22-country dropdown (`COUNTRIES`/`COUNTRY_PATHS` in `index.html`) so it always has a matching silhouette; `rating` is 1-10; `process`/`variety`/`roastDate`/`cost` (£) are all optional free-entry fields. Full bean editor lives on its own "Beans" tab now (moved out of Maintenance since the field count kept growing) — Maintenance kept just Drink types/Baristas/People.
+- Log columns: `timestamp | barista | for | drink | bean | grams | mood` — `mood` is optional, one of `cranky|ded|good|hungry|jittery` (`MOODS` in `index.html`), picked on the Order page under "How you feeling," doesn't block ordering.
 - Options columns: `category | value` where category ∈ {drink, barista, person}.
 - DrinkIcons columns: `drink | icon` — sparse, only holds manual overrides. Icon otherwise auto-guessed from the drink name by keyword (`guessDrinkIcon()`); override via a select on each drink row in Maintenance.
-- Client caches `getData` in localStorage (stale-while-revalidate → instant reopens). Maintenance edits are optimistic (apply locally, sync in background, self-heal on failure). Grams floored at 0 on client and server. Grams/grind/rating edits commit on a debounce (don't rely on the flaky change/blur event); country/icon selects commit on change. Chart.js is lazy-loaded only on the Stats tab.
-- `Code.gs` migrations are additive-only and idempotent (`ensureSetup()` adds new columns/sheets on first request post-redeploy, never rewrites existing rows) — verified by simulation before shipping, see git history around the country/rating commit for the dry-run approach if extending the schema again.
+- Client caches `getData` in localStorage (stale-while-revalidate → instant reopens), plus a manual force-refresh button (circular arrow icon, top-right of the topbar) for when a device's local cache feels stale after another device logged something. Maintenance/Beans edits are optimistic (apply locally, sync in background, self-heal on failure). Grams floored at 0 on client and server. Grams/grind/rating/cost edits commit on a debounce (don't rely on the flaky change/blur event); country/dates/icon selects commit on change; Name/Roaster/Notes/Process/Variety share one explicit Save button that appears once any of the five is dirty. Chart.js is lazy-loaded only on the Stats tab.
+- `Code.gs` migrations are additive-only and idempotent (`ensureSetup()` adds new columns/sheets on first request post-redeploy, never rewrites existing rows) — verified by simulation before shipping every time the schema grows; see git history for the dry-run pattern (mock a `Sheet`/`Range` class in Python, replay the exact migration + read logic against a snapshot of the live sheet's current shape).
 
 **Preview:** `cranky-preview.html` is generated from `index.html` by swapping the JSONP layer for an in-memory mock + Chart.js from cdnjs. Do not deploy it — it's only for iterating in-chat.
 
@@ -73,10 +74,20 @@ Ideas discussed but not yet built, with enough detail to pick up cold later.
 
 **Design language:** espresso `#211613`, cream `#F3E9DC`, tangerine accent `#FF7A3D`; Anton wordmark + Space Grotesk UI; mascot is the cranky/crying mug (`cranky-logo.svg`, also used for the confirmation splash and app icons). Elsewhere-Coffee-inspired. User is strict about copy — get sign-off on any new UI text. Baristas/people: Payal & Sameer.
 
-**Recent changes (this session):**
+**Recent changes (most recent session):**
 
-- Beans gained `country` (curated 22-country dropdown) and `rating` (1-10) fields, editable in Maintenance. Order-page bean tiles show a faint silhouette of the bean's origin country as a background watermark; beans with no country set fall back to a minimalist globe icon instead of showing nothing.
-- Drink tiles on Order now show a small minimalist cup icon above the name (demitasse/mug/wide-cup/iced-cup/frappe-cup, or a maple leaf specifically for anything with "maple" in the name) — auto-guessed from the drink name by keyword, overridable per-drink in Maintenance.
+- Force-refresh button in the topbar for cross-device staleness.
+- Beans moved off Maintenance onto their own nav tab; gained `process`, `variety`, `roastDate`, and `cost` (£) fields (all optional). Bean card fields reordered/regrouped (Country/Roast date/Opened, then Grind/Grams/Cost, then rating) now that there's a full page for it.
+- Name/Roaster/Notes weren't editable after bean creation — fixed, now inline-editable in the bean card with an explicit Save button that appears once you've changed something.
+- "How you feeling" mood picker added to Order (Cranky/Ded/Good/Hungry/Jittery, optional, doesn't block ordering) — Cranky's icon is adapted from the app's own mascot face; others sourced from Tabler Icons for style consistency.
+- iOS status-bar overlap fixed (`env(safe-area-inset-top)` — the app runs `black-translucent` status bar + standalone display, so content renders under the notch by default unless padded manually).
+- Chart palette swapped from a bright rainbow to a muted terracotta/blue set.
+- "Add new beans" moved from a standalone button into the Order page's Beans grid as a dashed/shaded tile equally sized to real bean tiles; the "for" category's custom-name `+` tile now shares that same dashed styling.
+
+**Earlier session:**
+
+- Beans gained `country` (curated 22-country dropdown) and `rating` (1-10) fields. Order-page bean tiles show a faint silhouette of the bean's origin country as a background watermark; beans with no country set fall back to a minimalist globe icon instead of showing nothing.
+- Drink tiles on Order show a small minimalist cup icon above the name (demitasse/mug/wide-cup/iced-cup/frappe-cup, or a maple leaf specifically for anything with "maple" in the name) — auto-guessed from the drink name by keyword, overridable per-drink in Maintenance.
 - Stats gained a 4th chart: "Drinks by country" pie, grouping beans with no country set under "Unspecified".
 
 **Still open / pending:**
@@ -84,3 +95,10 @@ Ideas discussed but not yet built, with enough detail to pick up cold later.
 - User to send the final GitHub Pages URL so Claude can generate the QR code for the machine.
 - Product question: when a bag hits 0g, currently the app still logs the order and leaves grams at 0 (no block). Open whether to add a gentle refill/pick-another-bag nudge (user asked to keep ordering unblocked earlier).
 - Offered but not done: trim the `getData` payload (e.g., stop sending the full log to Order/Maintenance) if the background refresh lags once history grows.
+- Coffee-expert product review surfaced more ideas not yet built: per-log 1-5 quick rating (distinct from the bean's own 1-10 rating), Payal-vs-Sameer head-to-head stats card, streaks/milestones, time-of-day/day-of-week heatmap, rotating fun-fact strip on Stats, roaster/origin "report card" (avg rating grouped by roaster or country), and a freshness badge on bean tiles once `roastDate` has real data in it ("Xd off roast").
+- Reliability/perf audit (opus) fixed the two small obvious findings — server-side grams floor in `logDrink`/`updateBean`, and a double-tap guard (`guardedMutate`/`pendingBeanActions` in `index.html`) on the "−17.5g"/"Donezo"/"Restore" buttons. Deferred, needs discussion before fixing:
+  - **Bean identity is the raw Sheet row number.** If a bean row is ever manually deleted in the Sheet (rather than archived via the app), every bean below it shifts and future edits silently hit the wrong bean. Not a code bug — an operating rule: never manually delete a bean row, archive only.
+  - **Debounced field edits (grams/grind/rating/cost, 700ms) have no ordering guarantee over JSONP** — two rapid edits to the same field from the same device could theoretically land out of order (last *response*, not last *request*, wins). Low real-world odds for 2 users; would need a version/timestamp check to fully close.
+  - **`ensureSetup()` isn't lock-protected** — two simultaneous first-requests in the seconds right after a redeploy could both try to create a not-yet-existing sheet and one would error. Only matters immediately post-deploy.
+  - **Stats chart math (nested log scans, per-row bean lookup) will get visibly slower at thousands of logged drinks** — fine at current scale, worth revisiting if `getData`'s full-log-every-time issue (already tracked above) ever gets addressed at the same time.
+  - Preview mock beans/log don't exercise every field (process/variety/roastDate/cost/mood) on the sample data, so "looks right in preview" isn't a full guarantee for those — worth padding out the mock sample data next time it's touched.
