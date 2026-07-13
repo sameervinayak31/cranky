@@ -138,6 +138,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   border-radius:12px;padding:11px 13px;margin-bottom:8px}
 .row .nm{flex:1;font-weight:600;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .iconbtn{background:none;border:none;color:var(--muted);font-size:20px;line-height:1;padding:2px 6px}
+.synctag{color:var(--muted);font-size:11px;font-style:italic;padding:2px 6px;flex:none}
 .addrow{display:flex;gap:8px;margin-top:4px}
 .addrow input{flex:1;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;
   padding:11px 13px;color:var(--cream);font-size:15px}
@@ -524,11 +525,10 @@ $('#bSave').onclick=async()=>{
 };
 
 /* ---------- DRINK LOG ---------- */
-async function openLogSheet(){
+function openLogSheet(){
   $('#logScrim').classList.add('on');
-  $('#logList').innerHTML = `<p class="errline">Loading…</p>`;
-  try{ await refresh(); }catch(e){}
   renderLogList();
+  refresh().then(renderLogList).catch(()=>{});
 }
 function closeLogSheet(){ $('#logScrim').classList.remove('on'); }
 $('#logClose').onclick=closeLogSheet;
@@ -538,8 +538,8 @@ function renderLogList(){
   $('#logList').innerHTML = entries.length ? entries.map(l=>{
     const d=new Date(l.ts);
     const time=isNaN(d)?'':d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
-    return `<div class="row"><span class="nm">${fmtDay(l.ts)} ${time} · ${esc(l.drink)} for ${esc(l.for)}</span>
-      ${l.id!=null?`<button class="iconbtn" data-log-remove="${l.id}">&times;</button>`:''}</div>`;
+    const action = l.id!=null ? `<button class="iconbtn" data-log-remove="${l.id}">&times;</button>` : `<span class="synctag">syncing…</span>`;
+    return `<div class="row"><span class="nm">${fmtDay(l.ts)} ${time} · ${esc(l.drink)} for ${esc(l.for)}</span>${action}</div>`;
   }).join('') : `<p class="errline">No drinks logged yet.</p>`;
   document.querySelectorAll('#logList [data-log-remove]').forEach(b=>b.onclick=()=>{
     const id=+b.dataset.logRemove;
