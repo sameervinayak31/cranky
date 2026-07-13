@@ -28,6 +28,7 @@ function doGet(e){
       case 'addOption':    out = addOption(p); break;
       case 'removeOption': out = removeOption(p); break;
       case 'setDrinkIcon': out = setDrinkIcon(p); break;
+      case 'deleteLog':    out = deleteLog(p); break;
       default:             out = { ok:false, error:'unknown action' };
     }
   } catch (err) {
@@ -102,10 +103,10 @@ function getData(){
   }
   var lsheet = s.getSheetByName('Log'), log = [];
   if (lsheet.getLastRow() > 1){
-    lsheet.getRange(2,1,lsheet.getLastRow()-1,7).getValues().forEach(function(r){
+    lsheet.getRange(2,1,lsheet.getLastRow()-1,7).getValues().forEach(function(r,i){
       if (!r[0]) return;
       var ts = (r[0] instanceof Date) ? r[0].toISOString() : String(r[0]);
-      log.push({ ts:ts, barista:r[1], for:r[2], drink:r[3], bean:r[4], grams:Number(r[5])||0, mood:r[6]||'' });
+      log.push({ id:i+2, ts:ts, barista:r[1], for:r[2], drink:r[3], bean:r[4], grams:Number(r[5])||0, mood:r[6]||'' });
     });
   }
   var disheet = s.getSheetByName('DrinkIcons'), drinkIcons = {};
@@ -160,6 +161,34 @@ function updateBean(p){
     if (p.delta   !== undefined){
       var cur = Number(beans.getRange(row,5).getValue())||0;
       beans.getRange(row,5).setValue(Math.max(0, Math.round((cur+Number(p.delta))*10)/10));
+    }
+    return { ok:true };
+  } finally { lock.releaseLock(); }
+}
+
+function deleteLog(p){
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sheet = ss().getSheetByName('Log');
+    var row = Number(p.id);
+    if (row <= 1 || row > sheet.getLastRow()) return { ok:true };
+    var beanName = sheet.getRange(row,5).getValue();
+    var grams = Number(sheet.getRange(row,6).getValue()) || GRAMS_PER;
+    sheet.deleteRow(row);
+    if (beanName){
+      var beans = ss().getSheetByName('Beans');
+      var last = beans.getLastRow();
+      if (last > 1){
+        var names = beans.getRange(2,1,last-1,1).getValues();
+        for (var i=0;i<names.length;i++){
+          if (String(names[i][0])===String(beanName)){
+            var br = i+2;
+            var cur = Number(beans.getRange(br,5).getValue())||0;
+            beans.getRange(br,5).setValue(Math.round((cur+grams)*10)/10);
+            break;
+          }
+        }
+      }
     }
     return { ok:true };
   } finally { lock.releaseLock(); }

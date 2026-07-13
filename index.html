@@ -146,6 +146,11 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .row select{background:var(--surface2);border:1px solid var(--line);border-radius:8px;color:var(--cream);font-size:12px;padding:5px 6px;font-family:inherit}
 .row select:focus{outline:none}
 .beancard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
+.beanstack{margin-bottom:10px}
+.beanstack .beancard{margin-bottom:0}
+.stackbar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 2px 6px}
+.stackcount{color:var(--muted);font-size:12px;font-weight:600;flex:1;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stacknav{background:var(--surface2);border:1px solid var(--line);border-radius:8px;color:var(--cream);font-size:16px;font-weight:700;padding:2px 10px;line-height:1.4}
 .beancard.arch{opacity:.6}
 .beancard .bhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px}
 .beancard .bname{font-weight:700;font-size:16px}
@@ -179,6 +184,10 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   letter-spacing:.5px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:5px;text-transform:uppercase}
 .nav button svg{width:22px;height:22px}
 .nav button.on{color:var(--accent)}
+.banner{position:fixed;left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:45;
+  max-width:456px;margin:0 auto;background:var(--low);color:#241009;border-radius:12px;padding:10px 14px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:600}
+.banner button{background:#241009;color:var(--low);border:none;border-radius:8px;padding:6px 12px;font-weight:700;font-size:12px}
 
 /* states */
 .state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px;gap:18px}
@@ -208,7 +217,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   <div class="sheet">
     <div class="head"><span class="eyebrow">Add new beans</span><button class="x" id="beanClose">&times;</button></div>
     <label class="lbl">Name</label><input class="inp" id="bName" autocomplete="off">
-    <label class="lbl">Roaster</label><input class="inp" id="bRoaster" autocomplete="off">
+    <label class="lbl">Roaster</label><input class="inp" id="bRoaster" list="roasterList" autocomplete="off">
     <label class="lbl">Notes</label><input class="inp" id="bNotes" autocomplete="off">
     <label class="lbl">Process (optional)</label><input class="inp" id="bProcess" autocomplete="off">
     <label class="lbl">Variety (optional)</label><input class="inp" id="bVariety" autocomplete="off">
@@ -222,7 +231,17 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   </div>
 </div>
 
+<datalist id="roasterList"></datalist>
+
+<div class="scrim" id="logScrim">
+  <div class="sheet">
+    <div class="head"><span class="eyebrow">Drink log</span><button class="x" id="logClose">&times;</button></div>
+    <div id="logList"></div>
+  </div>
+</div>
+
 <div class="splash" id="splash"><span></span></div>
+<div class="banner hide" id="syncBanner"><span>Couldn't save your last order</span><button id="syncRetry">Retry</button></div>
 <nav class="nav" id="nav"></nav>
 
 <script>
@@ -274,9 +293,9 @@ const COUNTRY_PATHS = {
   "Papua New Guinea": "M41.2,32.7 L64.5,54.1 L46.0,51.1 L33.6,37.3 L24.9,34.4 L15.2,38.5 L16.1,43.4 L10.8,45.7 L0.2,44.3 L0.0,0.7 L23.9,9.1 L33.2,19.9 L44.3,24.0 L45.9,27.6 L39.8,28.3 L41.2,32.7 Z M73.1,19.9 L61.5,25.6 L48.7,21.7 L58.9,20.1 L59.9,16.9 L61.5,20.3 L65.3,19.8 L70.9,15.1 L70.2,11.2 L75.5,12.1 L73.1,19.9 Z M80.8,13.4 L78.7,15.2 L75.9,8.6 L64.3,1.6 L66.2,0.0 L74.8,5.0 L80.8,13.4 Z",
   "China": "M88.0,7.5 L93.4,11.5 L100.0,10.1 L98.0,14.9 L93.5,17.2 L92.9,22.5 L77.2,29.6 L78.2,25.4 L71.5,29.9 L79.4,32.5 L74.1,37.7 L78.6,44.2 L78.3,51.2 L73.3,58.7 L59.9,67.2 L51.6,61.1 L45.8,65.5 L41.7,63.6 L39.0,60.0 L40.8,52.7 L36.6,48.7 L24.7,53.1 L12.1,47.2 L0.4,30.4 L0.2,27.5 L10.5,23.0 L10.3,17.3 L22.9,8.4 L28.1,16.6 L37.0,21.8 L51.0,24.1 L59.9,21.5 L62.3,17.0 L75.0,13.7 L68.1,10.8 L74.3,6.7 L77.1,0.4 L85.2,1.4 L88.0,7.5 Z"
 };
-const COUNTRIES = ["Ethiopia","Kenya","Rwanda","Burundi","Tanzania","Uganda","Yemen","Colombia","Brazil","Peru",
-  "Guatemala","Costa Rica","Honduras","El Salvador","Nicaragua","Panama","Mexico","Indonesia","Vietnam","India",
-  "Papua New Guinea","China"];
+const COUNTRIES = ["Brazil","Burundi","China","Colombia","Costa Rica","El Salvador","Ethiopia","Guatemala",
+  "Honduras","India","Indonesia","Kenya","Mexico","Nicaragua","Panama","Papua New Guinea","Peru","Rwanda",
+  "Tanzania","Uganda","Vietnam","Yemen"];
 function countryOptions(selected){
   return `<option value="">—</option>` + COUNTRIES.map(c=>
     `<option value="${esc(c)}" ${c===selected?'selected':''}>${esc(c)}</option>`).join('');
@@ -451,23 +470,41 @@ function renderOrder(){
   $('#orderBtn').onclick=placeOrder;
 }
 
-async function placeOrder(){
-  const btn=$('#orderBtn'); btn.disabled=true;
+function placeOrder(){
   const bean=ST.beans.find(b=>b.id===sel.beanId);
-  try{
-    const r=await api({action:'log',beanId:sel.beanId,barista:sel.barista,drink:sel.drink,for:sel.forVal,mood:sel.mood||''});
-    if(!r||!r.ok) throw new Error('bad');
+  const params={action:'log',beanId:sel.beanId,barista:sel.barista,drink:sel.drink,for:sel.forVal,mood:sel.mood||''};
+  if(bean) bean.grams=Math.max(0, Math.round((bean.grams-GRAMS_PER)*10)/10);
+  ST.log.push({ts:new Date().toISOString(),barista:params.barista,for:params.for,drink:params.drink,bean:bean?bean.name:'',grams:GRAMS_PER,mood:params.mood});
+  cacheSaveFromST();
+  splash(); sel.drink=null; sel.forVal=sel.forCustom?'':null; sel.forCustom=false; sel.mood=null; renderOrder();
+  api(params).then(r=>{
+    if(!r||!r.ok) throw 0;
     if(bean) bean.grams=Math.max(0, r.grams);
-    ST.log.push({ts:new Date().toISOString(),barista:sel.barista,for:sel.forVal,drink:sel.drink,bean:bean?bean.name:'',grams:GRAMS_PER,mood:sel.mood||''});
-    splash(); sel.drink=null; sel.forVal=sel.forCustom?'':null; sel.forCustom=false; sel.mood=null; cacheSaveFromST(); renderOrder();
-  }catch(e){ btn.disabled=false; errToast(); }
+    cacheSaveFromST();
+  }).catch(()=>{ errToast(); refresh().then(renderCur).catch(()=>{ orderSyncFailed=true; updateSyncBanner(); }); });
 }
 function splash(){ const s=$('#splash'); s.querySelector('span').innerHTML=LOGO; s.classList.add('on'); setTimeout(()=>s.classList.remove('on'),900); }
+
+/* ---------- sync failure banner ---------- */
+let orderSyncFailed = false;
+function updateSyncBanner(){ $('#syncBanner').classList.toggle('hide', !orderSyncFailed); }
+$('#syncRetry').onclick=async()=>{
+  const btn=$('#syncRetry'); btn.disabled=true;
+  try{ await refresh(); renderCur(); }
+  catch(e){ errToast(); }
+  finally{ btn.disabled=false; }
+};
+
+function roasterOptions(){
+  const set=new Set(ST.beans.map(b=>b.roaster).filter(Boolean));
+  return [...set].sort((a,b)=>a.localeCompare(b)).map(r=>`<option value="${esc(r)}"></option>`).join('');
+}
 
 /* ---------- ADD BEANS ---------- */
 function openBeanSheet(){ $('#bName').value='';$('#bRoaster').value='';$('#bNotes').value='';$('#bGrams').value='';
   $('#bProcess').value='';$('#bVariety').value='';$('#bRoastDate').value='';$('#bCost').value='';
   $('#bOpened').value=new Date().toISOString().slice(0,10); $('#bCountry').innerHTML=countryOptions(''); $('#bRating').value='';
+  $('#roasterList').innerHTML=roasterOptions();
   $('#beanScrim').classList.add('on'); setTimeout(()=>$('#bName').focus(),0); }
 function closeBeanSheet(){ $('#beanScrim').classList.remove('on'); }
 $('#beanClose').onclick=closeBeanSheet;
@@ -485,6 +522,39 @@ $('#bSave').onclick=async()=>{
     await refresh(); closeBeanSheet(); if(tab==='order') renderOrder(); if(tab==='beans') renderBeans();
   }catch(e){ errToast(); } finally{ btn.disabled=false; }
 };
+
+/* ---------- DRINK LOG ---------- */
+async function openLogSheet(){
+  $('#logScrim').classList.add('on');
+  $('#logList').innerHTML = `<p class="errline">Loading…</p>`;
+  try{ await refresh(); }catch(e){}
+  renderLogList();
+}
+function closeLogSheet(){ $('#logScrim').classList.remove('on'); }
+$('#logClose').onclick=closeLogSheet;
+$('#logScrim').onclick=e=>{ if(e.target===$('#logScrim')) closeLogSheet(); };
+function renderLogList(){
+  const entries=[...ST.log].sort((a,b)=>new Date(b.ts)-new Date(a.ts)).slice(0,40);
+  $('#logList').innerHTML = entries.length ? entries.map(l=>{
+    const d=new Date(l.ts);
+    const time=isNaN(d)?'':d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+    return `<div class="row"><span class="nm">${fmtDay(l.ts)} ${time} · ${esc(l.drink)} for ${esc(l.for)}</span>
+      ${l.id!=null?`<button class="iconbtn" data-log-remove="${l.id}">&times;</button>`:''}</div>`;
+  }).join('') : `<p class="errline">No drinks logged yet.</p>`;
+  document.querySelectorAll('#logList [data-log-remove]').forEach(b=>b.onclick=()=>{
+    const id=+b.dataset.logRemove;
+    const idx=ST.log.findIndex(l=>l.id===id);
+    let entry=null;
+    if(idx>=0){ entry=ST.log[idx]; ST.log.splice(idx,1); }
+    if(entry && entry.bean){
+      const bean=ST.beans.find(x=>x.name===entry.bean);
+      if(bean) bean.grams=Math.round((bean.grams+(entry.grams||GRAMS_PER))*10)/10;
+    }
+    cacheSaveFromST(); renderLogList(); if(tab==='order') renderOrder(); if(tab==='beans') renderBeans();
+    api({action:'deleteLog',id}).then(r=>{ if(!r||!r.ok) throw 0; })
+      .catch(()=>{ errToast(); refresh().then(()=>{ renderLogList(); renderCur(); }).catch(()=>{}); });
+  });
+}
 
 /* ---------- STATS ---------- */
 let charts=[];
@@ -586,7 +656,9 @@ function renderMaint(){
   view.innerHTML=`<h1 class="page-title">Maintenance</h1>
     ${optSection('Drink types','drink',ST.drinks)}
     ${optSection('Baristas','barista',ST.baristas)}
-    ${optSection('People','person',ST.people)}`;
+    ${optSection('People','person',ST.people)}
+    <div class="msec"><p class="eyebrow">Drink log</p><button class="addbeans" id="openLogBtn">View / edit log</button></div>`;
+  $('#openLogBtn').onclick=openLogSheet;
 
   document.querySelectorAll('[data-opt-remove]').forEach(b=>b.onclick=()=>{
     const [cat,val]=JSON.parse(b.dataset.optRemove);
@@ -611,12 +683,39 @@ function renderMaint(){
 }
 
 /* ---------- BEANS ---------- */
+let beanStackIndex = {};
+function beanGroupKey(b){ return [b.name,b.roaster,b.country].map(x=>(x||'').toLowerCase().trim()).join('|'); }
+function beanStackHtml(group, gi){
+  if(group.length===1) return beanCard(group[0]);
+  const key=beanGroupKey(group[0]);
+  let idx=beanStackIndex[key]||0; if(idx>=group.length) idx=0;
+  const b=group[idx];
+  return `<div class="beanstack" data-stack-idx="${gi}">
+    <div class="stackbar">
+      <button class="stacknav" data-stack-prev aria-label="Previous bag">&lsaquo;</button>
+      <span class="stackcount">${esc(b.name)} · bag ${idx+1} of ${group.length}</span>
+      <button class="stacknav" data-stack-next aria-label="Next bag">&rsaquo;</button>
+    </div>
+    ${beanCard(b)}
+  </div>`;
+}
 function renderBeans(){
   const shown=[...ST.beans].sort((a,b)=>((a.status==='active'?0:1)-(b.status==='active'?0:1))||b.id-a.id);
+  const groups=[]; const seen=new Map();
+  shown.forEach(b=>{ const k=beanGroupKey(b);
+    if(seen.has(k)) groups[seen.get(k)].push(b); else { seen.set(k, groups.length); groups.push([b]); } });
   view.innerHTML=`<h1 class="page-title">Beans</h1>
     <button class="addbeans" id="addBtnBeans">Add new beans</button>
-    <div id="beansList">${shown.map(beanCard).join('')}</div>`;
+    <div id="beansList">${groups.map((g,gi)=>beanStackHtml(g,gi)).join('')}</div>`;
   $('#addBtnBeans').onclick=openBeanSheet;
+  $('#roasterList').innerHTML=roasterOptions();
+  groups.forEach((g,gi)=>{
+    if(g.length<2) return;
+    const key=beanGroupKey(g[0]);
+    const wrap=document.querySelector(`[data-stack-idx="${gi}"]`);
+    wrap.querySelector('[data-stack-prev]').onclick=()=>{ beanStackIndex[key]=((beanStackIndex[key]||0)-1+g.length)%g.length; renderBeans(); };
+    wrap.querySelector('[data-stack-next]').onclick=()=>{ beanStackIndex[key]=((beanStackIndex[key]||0)+1)%g.length; renderBeans(); };
+  });
   wireBeanCards();
 }
 function optSection(title,cat,items){
@@ -633,7 +732,7 @@ function beanCard(b){
     <div class="bhead">
       <div class="bidfields">
         <input class="bname" data-name value="${esc(b.name)}" placeholder="Name" autocomplete="off">
-        <input class="broaster" data-roaster value="${esc(b.roaster)}" placeholder="Roaster" autocomplete="off">
+        <input class="broaster" data-roaster list="roasterList" value="${esc(b.roaster)}" placeholder="Roaster" autocomplete="off">
         <input class="bnotes" data-notes value="${esc(b.notes)}" placeholder="Notes" autocomplete="off">
         <div class="bpair">
           <input class="bprocess" data-process value="${esc(b.process)}" placeholder="Process" autocomplete="off">
@@ -725,6 +824,7 @@ $('#refreshBtn').onclick=async()=>{
 async function refresh(){
   const r=await api({action:'getData'}); if(!r||!r.ok) throw new Error('bad');
   applyData(r); cacheSave(r);
+  if(orderSyncFailed){ orderSyncFailed=false; updateSyncBanner(); }
 }
 async function boot(){
   renderNav();
