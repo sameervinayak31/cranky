@@ -355,7 +355,7 @@ const DB = {
   nextId: 7,
   nextLogId: 1000,
   beans: [
-    {id:2,name:'Daydreamer',roaster:'Elsewhere',notes:'Brazil · choc & nut',grind:4,grams:210,opened:_ago(6),status:'active',country:'Brazil',rating:8},
+    {id:2,name:'Daydreamer',roaster:'Elsewhere',notes:'Brazil · choc & nut',grind:4,grams:210,opened:_ago(6),status:'active',country:'Brazil',rating:8,roastDate:_ago(12)},
     {id:3,name:'Juicebox',roaster:'Elsewhere',notes:'Colombia · fruity',grind:5,grams:35,opened:_ago(18),status:'active',country:'Colombia',rating:9},
     {id:4,name:'Highland Reserve',roaster:'Assembly',notes:'Ethiopia · floral',grind:6,grams:140,opened:_ago(3),status:'active',country:'Ethiopia',rating:10},
     {id:5,name:'Night Rider',roaster:'Elsewhere',notes:'House decaf',grind:'',grams:0,opened:_ago(40),status:'archived',country:'',rating:''},
@@ -369,16 +369,17 @@ const DB = {
   log: (function(){
     const drinks=['Espresso','Americano','Flat White','Cappuccino','Cortado','Iced Latte','Iced Americano','Vanilla Maple Frappe','Iced Cold Foam Americano'];
     const who=['Payal','Sameer','Sameer','Payal','Guest'];
-    const beans=['Daydreamer','Juicebox','Highland Reserve'];
+    const beans=[['Daydreamer',2],['Juicebox',3],['Highland Reserve',4]];
     const out=[]; const today=new Date(); let nextId=1000;
     for(let d=27; d>=0; d--){
       const day=new Date(today); day.setDate(today.getDate()-d);
       const n=Math.floor(Math.random()*3);
       for(let i=0;i<n;i++){
         const t=new Date(day); t.setHours(7+Math.floor(Math.random()*10), Math.floor(Math.random()*60));
+        const [beanName,beanId]=beans[Math.floor(Math.random()*beans.length)];
         out.push({id:nextId++, ts:t.toISOString(), barista:who[Math.floor(Math.random()*who.length)],
           for:who[Math.floor(Math.random()*who.length)], drink:drinks[Math.floor(Math.random()*drinks.length)],
-          bean:beans[Math.floor(Math.random()*beans.length)], grams:17.5, mood:''});
+          bean:beanName, grams:17.5, mood:'', beanId});
       }
     }
     return out;
@@ -392,11 +393,12 @@ function handle(p){
       options:{drink:[...DB.options.drink],barista:[...DB.options.barista],person:[...DB.options.person]},
       log:DB.log.map(l=>({...l})), drinkIcons:{...DB.drinkIcons}};
     case 'log': { const b=DB.beans.find(x=>x.id===+p.beanId); const g=Math.max(0, Math.round((b.grams-17.5)*10)/10); b.grams=g;
-      DB.log.push({id:DB.nextLogId++,ts:new Date().toISOString(),barista:p.barista,for:p.for,drink:p.drink,bean:b.name,grams:17.5,mood:p.mood||''});
+      DB.log.push({id:DB.nextLogId++,ts:new Date().toISOString(),barista:p.barista,for:p.for,drink:p.drink,bean:b.name,grams:17.5,mood:p.mood||'',beanId:b.id});
       return {ok:true,beanId:b.id,grams:g}; }
     case 'deleteLog': { const idx=DB.log.findIndex(l=>l.id===+p.id);
       if(idx>=0){ const entry=DB.log[idx]; DB.log.splice(idx,1);
-        const b=DB.beans.find(x=>x.name===entry.bean); if(b) b.grams=Math.round((b.grams+(entry.grams||17.5))*10)/10; }
+        const b=(entry.beanId!=null)?DB.beans.find(x=>x.id===entry.beanId):DB.beans.find(x=>x.name===entry.bean);
+        if(b) b.grams=Math.round((b.grams+(entry.grams||17.5))*10)/10; }
       return {ok:true}; }
     case 'addBean': DB.beans.push({id:DB.nextId++,name:p.name,roaster:p.roaster||'',notes:p.notes||'',grind:'',
       grams:+(p.grams||0),opened:p.opened||'',status:'active',country:p.country||'',rating:p.rating===''||p.rating==null?'':+p.rating,
@@ -496,9 +498,15 @@ function renderOrder(){
   const beans = activeBeans();
   if(beans.length===1 && sel.beanId===null) sel.beanId = beans[0].id;
 
+  // duplicate bags (same name+roaster+country) get their roast date tagged so they're not indistinguishable on the tile
+  const dupGroups = {};
+  beans.forEach(b=>{ const k=beanGroupKey(b); (dupGroups[k]=dupGroups[k]||[]).push(b); });
+
   const beanTiles = beans.map(b=>{
     const low=b.grams<=LOW_AT;
-    const sub=low?`Low · ${fmt(b.grams)}g left`:`${fmt(b.grams)}g`;
+    const isDup=dupGroups[beanGroupKey(b)].length>1;
+    const roastTag=(isDup && b.roastDate)?`Roasted ${fmtDay(b.roastDate)} · `:'';
+    const sub=low?`${roastTag}Low · ${fmt(b.grams)}g left`:`${roastTag}${fmt(b.grams)}g`;
     return `<button class="tile bean ${sel.beanId===b.id?'sel':''}" data-bean="${b.id}">
       ${countryWatermark(b.country)}
       <span>${esc(b.name)}</span><span class="sub ${low?'low':''}">${sub}</span></button>`;
@@ -535,7 +543,7 @@ function placeOrder(){
   const bean=ST.beans.find(b=>b.id===sel.beanId);
   const params={action:'log',beanId:sel.beanId,barista:sel.barista,drink:sel.drink,for:sel.forVal,mood:sel.mood||''};
   if(bean) bean.grams=Math.max(0, Math.round((bean.grams-GRAMS_PER)*10)/10);
-  ST.log.push({ts:new Date().toISOString(),barista:params.barista,for:params.for,drink:params.drink,bean:bean?bean.name:'',grams:GRAMS_PER,mood:params.mood});
+  ST.log.push({ts:new Date().toISOString(),barista:params.barista,for:params.for,drink:params.drink,bean:bean?bean.name:'',grams:GRAMS_PER,mood:params.mood,beanId:sel.beanId});
   cacheSaveFromST();
   splash(); sel.drink=null; sel.forVal=sel.forCustom?'':null; sel.forCustom=false; sel.mood=null; renderOrder();
   api(params).then(r=>{
@@ -606,8 +614,8 @@ function renderLogList(){
     const idx=ST.log.findIndex(l=>l.id===id);
     let entry=null;
     if(idx>=0){ entry=ST.log[idx]; ST.log.splice(idx,1); }
-    if(entry && entry.bean){
-      const bean=ST.beans.find(x=>x.name===entry.bean);
+    if(entry){
+      const bean=(entry.beanId!=null&&entry.beanId!=='')?beanById(entry.beanId):(entry.bean?ST.beans.find(x=>x.name===entry.bean):null);
       if(bean) bean.grams=Math.round((bean.grams+(entry.grams||GRAMS_PER))*10)/10;
     }
     cacheSaveFromST(); renderLogList(); if(tab==='order') renderOrder(); if(tab==='beans') renderBeans();
@@ -678,7 +686,8 @@ async function renderStats(){
               y:{grid:{color:grid},ticks:{precision:0},beginAtZero:true}}}}));
 
   // 4) by country — pie, unspecified beans grouped separately
-  const byCountry=tally(L.map(l=>{ const b=ST.beans.find(x=>x.name===l.bean); return (b&&b.country)||'Unspecified'; }));
+  const byCountry=tally(L.map(l=>{ const b=(l.beanId!=null&&l.beanId!=='')?beanById(l.beanId):null;
+    return (b&&b.country) || (ST.beans.find(x=>x.name===l.bean)||{}).country || 'Unspecified'; }));
   const countryLabels=Object.keys(byCountry);
   charts.push(new Chart($('#c4'),{type:'pie',
     data:{labels:countryLabels,datasets:[{data:Object.values(byCountry),

@@ -4,6 +4,7 @@
  * Responds as JSONP so the GitHub Pages site can call it with no CORS setup.
  *
  * Beans columns: A name | B roaster | C notes | D grind | E grams | F opened | G status | H country | I rating | J process | K variety | L roastDate | M cost
+ * Log columns: A timestamp | B barista | C for | D drink | E bean (name snapshot) | F grams | G mood | H beanId (stable ref, added after bean names proved renameable)
  */
 
 var GRAMS_PER = 17.5;
@@ -52,9 +53,12 @@ function ensureSetup(){
   var s = ss();
   var log = s.getSheetByName('Log');
   if (!log){
-    s.insertSheet('Log').appendRow(['timestamp','barista','for','drink','bean','grams','mood']);
+    s.insertSheet('Log').appendRow(['timestamp','barista','for','drink','bean','grams','mood','beanId']);
   } else if (log.getRange(1,7).getValue() === ''){
     log.getRange(1,7).setValue('mood');
+  }
+  if (log && log.getRange(1,8).getValue() === ''){
+    log.getRange(1,8).setValue('beanId');
   }
   var beans = s.getSheetByName('Beans');
   if (!beans){
@@ -103,10 +107,11 @@ function getData(){
   }
   var lsheet = s.getSheetByName('Log'), log = [];
   if (lsheet.getLastRow() > 1){
-    lsheet.getRange(2,1,lsheet.getLastRow()-1,7).getValues().forEach(function(r,i){
+    lsheet.getRange(2,1,lsheet.getLastRow()-1,8).getValues().forEach(function(r,i){
       if (!r[0]) return;
       var ts = (r[0] instanceof Date) ? r[0].toISOString() : String(r[0]);
-      log.push({ id:i+2, ts:ts, barista:r[1], for:r[2], drink:r[3], bean:r[4], grams:Number(r[5])||0, mood:r[6]||'' });
+      log.push({ id:i+2, ts:ts, barista:r[1], for:r[2], drink:r[3], bean:r[4], grams:Number(r[5])||0, mood:r[6]||'',
+                 beanId:r[7]===''?'':Number(r[7]) });
     });
   }
   var disheet = s.getSheetByName('DrinkIcons'), drinkIcons = {};
@@ -127,7 +132,7 @@ function logDrink(p){
     var grams = Number(beans.getRange(row,5).getValue()) || 0;   // grams = col E
     var next = Math.max(0, Math.round((grams - GRAMS_PER)*10)/10);
     beans.getRange(row,5).setValue(next);
-    ss().getSheetByName('Log').appendRow([new Date(), p.barista||'', p.for||'', p.drink||'', name, GRAMS_PER, p.mood||'']);
+    ss().getSheetByName('Log').appendRow([new Date(), p.barista||'', p.for||'', p.drink||'', name, GRAMS_PER, p.mood||'', row]);
     return { ok:true, beanId:row, grams:next };
   } finally { lock.releaseLock(); }
 }
@@ -172,23 +177,29 @@ function deleteLog(p){
     var sheet = ss().getSheetByName('Log');
     var row = Number(p.id);
     if (row <= 1 || row > sheet.getLastRow()) return { ok:true };
-    var beanName = sheet.getRange(row,5).getValue();
-    var grams = Number(sheet.getRange(row,6).getValue()) || GRAMS_PER;
+    var rowVals = sheet.getRange(row,1,1,8).getValues()[0];
+    var beanName = rowVals[4];
+    var grams = Number(rowVals[5]) || GRAMS_PER;
+    var beanId = rowVals[7];
     sheet.deleteRow(row);
-    if (beanName){
-      var beans = ss().getSheetByName('Beans');
+    var beans = ss().getSheetByName('Beans');
+    var br = 0;
+    if (beanId !== '' && beanId != null){
+      br = Number(beanId);
+      if (br <= 1 || br > beans.getLastRow() || beans.getRange(br,1).getValue()==='') br = 0;
+    }
+    if (!br && beanName){
       var last = beans.getLastRow();
       if (last > 1){
         var names = beans.getRange(2,1,last-1,1).getValues();
         for (var i=0;i<names.length;i++){
-          if (String(names[i][0])===String(beanName)){
-            var br = i+2;
-            var cur = Number(beans.getRange(br,5).getValue())||0;
-            beans.getRange(br,5).setValue(Math.round((cur+grams)*10)/10);
-            break;
-          }
+          if (String(names[i][0])===String(beanName)){ br = i+2; break; }
         }
       }
+    }
+    if (br){
+      var cur = Number(beans.getRange(br,5).getValue())||0;
+      beans.getRange(br,5).setValue(Math.round((cur+grams)*10)/10);
     }
     return { ok:true };
   } finally { lock.releaseLock(); }
